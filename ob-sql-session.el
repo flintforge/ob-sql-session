@@ -148,12 +148,12 @@
         (goto-char (point-max)) (backward-delete-char 1) ;; last newline
         (beginning-of-line)
         (let ((end (point)))
-             (string-insert-rectangle (point-min) end "|"))
+          (string-insert-rectangle (point-min) end "|"))
 				;; where does this extra | comes from ?
         (goto-char (point-min)) (delete-char 1))
 
 			;;(when (not session-p)
-				;;(sleep-for 0.3)
+			;;(sleep-for 0.3)
 
 
       (buffer-string)
@@ -352,7 +352,7 @@ several times consecutively as the shell outputs and flush its message
 buffer"
 
   (push 0 org-babel-sql-hold-on)
-;;(message "%s" ob-sql-clean-output--regexp)
+	;;(message "%s" ob-sql-clean-output--regexp)
   (with-local-quit
     (let ((output (replace-regexp-in-string
                    ob-sql-clean-output--regexp ""
@@ -367,7 +367,7 @@ buffer"
 			
 			(when (string-match ob-sql-session-terminator string)
 				(setq ob-sql-session-command-terminated t))
-					 
+			
       (with-current-buffer (get-buffer-create "*ob-sql-result*")
         (insert output)))))
 
@@ -379,16 +379,16 @@ Simplified version of `sql-send-string'"
 	(let ((s (concat
 						(replace-regexp-in-string "[\t]+" "" str)
 						";select '" ob-sql-session-terminator "';" )))
-				;;(let ((s (org-babel-chomp str)))
+		;;(let ((s (org-babel-chomp str)))
 		(message "%s" s)
-      (with-current-buffer buffer
-        (insert "\n")
-        (comint-set-process-mark)
-        ;; Send the string, trim trailing whitespace
-        (sql-input-sender (get-buffer-process (current-buffer)) s)
-        ;; Send a command terminator
-        (sql-send-magic-terminator buffer s sql-send-terminator))))
-				)))
+    (with-current-buffer buffer
+      (insert "\n")
+      (comint-set-process-mark)
+      ;; Send the string, trim trailing whitespace
+      (sql-input-sender (get-buffer-process (current-buffer)) s)
+      ;; Send a command terminator
+      (sql-send-magic-terminator buffer s sql-send-terminator))))
+
 
 
 (add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))
