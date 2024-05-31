@@ -199,8 +199,6 @@ Return the comint process buffer."
           (setq ob-sql-clean-output--regexp
                 ( concat "\\(" prompt-regexp "\\)"
                   (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
-					(message "? %s" ob-sql-clean-output--regexp)
-          ;;( concat (prompt-regexp "") "\\|" prompt-cont-regexp))
 
           ;; clear the welcoming message out of the output from the
           ;; first command, in case we forgot the quiet mode.
@@ -277,30 +275,16 @@ If buffer exists and a process is running, just switch to buffer `*SQL*'."
               (when (functionp sql-password)
                 (setq sql-password (funcall sql-password)))
 
-							(message "%s %s" sql-cnx session-p)
               ;; Call the COMINT service
-							(setq new-sqli-buffer
-							(funcall (sql-get-product-feature product :sqli-comint-func)
-                       product
-                       (sql-get-product-feature product :sqli-options)
-                       ;; generate a buffer name
-
-                       (cond
-												(session-p (format "*SQL: %s" sql-cnx))
-                        ((not sql-cnx)
-                         (sql-generate-unique-sqli-buffer-name product nil))
-                        ((consp sql-cnx)
-                         (sql-generate-unique-sqli-buffer-name
-													product (read-string
-																	 "Buffer name (\"*SQL: XXX*\"; enter `XXX'): "
-																	 (sql-make-alternate-buffer-name product))))
-                        ((stringp sql-cnx)
-                         (if (or (string-prefix-p " " sql-cnx)
-                                 (string-match-p "\\`[*].*[*]\\'" sql-cnx))
-                             sql-cnx
-                           (sql-generate-unique-sqli-buffer-name product sql-cnx)))
-                        (t
-                         (sql-generate-unique-sqli-buffer-name product sql-cnx)))))
+							(setq
+							 new-sqli-buffer
+							 (funcall (sql-get-product-feature product :sqli-comint-func)
+												product
+												(sql-get-product-feature product :sqli-options)
+												(format "SQL: %s" sql-cnx)))
+							;; no need for a numbered buffer:
+							;; connexion is closed, buffer killed when there's no session
+							;; engine/user/db/session points to the same buffer otherwise
 
 							;; Set SQLi mode.
 							;; why would we need this ?

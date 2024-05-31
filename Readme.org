@@ -3,10 +3,11 @@
 :PROPERTIES:
 :header-args:elisp: :results raw
 :END:
-
 #+author: Philippe Estival pe@7d.nz
 #+date : [2024-05-29 Wed]
 License: GPL3
+
+[[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/action.yml/badge.svg)
 
 https://github.com/flintforge/ob-sql-session.el
 # https://7d.nz/org-babel-sql-session
@@ -136,10 +137,11 @@ modified   lisp/progmodes/sql.el
 #+end_src
 
 Same session
-#+begin_src sql-session :engine sqlite :session "A"
+#+begin_src sql-session :engine sqlite :session A
 	create table test(an int, two char);
 	select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
+
 
 
 ** Test on postgres
