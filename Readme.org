@@ -1,15 +1,13 @@
-
 * Ob-sql-session
 :PROPERTIES:
 :header-args:elisp: :results raw
 :END:
 #+author: Philippe Estival pe@7d.nz
 #+date : [2024-05-29 Wed]
-License: GPL3
-
-# [[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/action.yml/badge.svg)
+#+License: GPL3
 
 https://github.com/flintforge/ob-sql-session.el
+[[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/CI.yml/badge.svg]]
 # https://7d.nz/org-babel-sql-session
 
 ** Orb babel functions for SQL, with session
@@ -71,9 +69,7 @@ org-mode 9.6.28.
   (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \.\.\.> ")
   #+end_src
 
-	#+RESULTS:
-		 ...> 
-
+	
 sql.el has to be patched in order to run sqlite in memory
 (ob-sqlite has no session support either an requires a database)
 
@@ -86,10 +82,12 @@ sql.el has to be patched in order to run sqlite in memory
 
 #+end_src
 
-#+RESULTS:
-| Parse error: near ".": syntax error                     |
-| ;select -----;  .headers on create table test("x","y"); |
-| ^--- error here                                         |
+#+begin_src sql-session :engine sqlite
+	drop table test;
+	create table test(one varchar(10), two int);
+	-- create table test(one varchar(10), two int);
+#+end_src
+
 
 Here is a good test.
 Drop takes times and the output get off track
@@ -105,15 +103,6 @@ if this is less than 0.3
 	select format("sqlite %s",sqlite_version()), date(), time();
 
 #+end_src
-
-#+RESULTS:
-: hello|1
-: world|2
-: sqlite 3.40.1|2024-05-31|20:38:33
-
-
-
-
 
 ** in order to run sqlite in memory
 =sql-database= can be /nil/ and no option given
@@ -149,22 +138,12 @@ modified   lisp/progmodes/sql.el
 
 #+end_src
 
-#+RESULTS:
-: table|test|test|2|CREATE TABLE test(an int, two char)
-: sqlite 3.40.1|2024-05-31|20:51:40
 
 Same session
 #+begin_src sql-session :engine sqlite :session A
 	create table test(an int, two char);
 	select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
-
-#+RESULTS:
-: Parse error: table test already exists
-:   create table test(an int, two char);
-:                ^--- error here
-: sqlite 3.40.1|2024-05-31|18:07:40
-
 
 
 ** Test on postgres
@@ -213,7 +192,7 @@ displayed when a command spans over several line
 indicating when the sql shell expects more
 input on a newline.
 
-** variables
+** Variables
 #+name: test-sql-session
 #+begin_src sql-session :engine sqlite :var x="3.0"
   select 1/$x;
@@ -232,13 +211,10 @@ input on a newline.
 #+end_src
 
 
-
 pass
-
-** running tests
-see [[info:ert#Running Tests in Batch Mode][ert#Running Tests in Batch Mode]]
 
 ** TODO >
 - [ ] Provide password with [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
 - [ ] properties relative to the session (clean-output-regex)
 - [ ] testing
+	
