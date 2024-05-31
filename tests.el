@@ -64,11 +64,11 @@ Assume the source block is at POSITION if non-nil."
 		)))))
 
 (defun sqlite-test (code expect)
-	(babel-block-test #'setup "sql-session :engine sqlite :session A " code expect))
+	(babel-block-test #'setup "sql-session :engine sqlite :database test.db :session A " code expect))
 
 (ert-deftest sqllite-test-create ()
   "Simple select from no table."
-  (sqlite-test "create table test(one varchar(10), two int);" nil))
+  (sqlite-test "drop table test; create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-test-insert ()
   "Simple select from no table."

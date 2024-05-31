@@ -81,6 +81,18 @@
 
 (defvar ob-sql-clean-output--regexp ""  "clean prompts")
 
+;; the command that terminate a batch of commands
+;; here is select '-----';
+;; while we can hold the command while output goes on.
+;; But since the prompt is showing off on every line of commands 
+;; ther's no way to figure out a batch of commands
+;; has terminated a special command is inserted at its end;
+;; However, if a stop on error is set, then the only
+;; remaining case is to also look for (depending on the client)
+;; ^ERROR: message indicating the command has terminated
+;; The latter isn't implemented.
+(defvar ob-sql-session-terminator  "-----"  "clean prompts")
+
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY using PARAMS."
 
@@ -106,20 +118,24 @@
       (erase-buffer))
 
     (setq org-babel-sql-hold-on '(t))
+		(setq ob-sql-session-command-terminated nil)
 		(with-current-buffer (get-buffer sql--buffer)
 			(ob-sql-send-string body (current-buffer))
-			(sleep-for 0.05) ; I'll read org-babel-comint-async-register an other day
+			;;(sleep-for 0.05) ; see org-babel-comint-async-register next time
 			;; let say the first command takes 1/10th s,
 			;; while the rest of the output	is every 50ms
-			(while (pop org-babel-sql-hold-on) (sleep-for 0.05))
+			(while (or (not ob-sql-session-command-terminated)
+								 (pop org-babel-sql-hold-on))
+				;; (message "%s %s" ob-sql-session-command-terminated (current-time))
+				(sleep-for 0.03))
 			;; remove filter
 			(set-process-filter (get-buffer-process sql--buffer) nil)
 			(when (not session-p)
 				(comint-quit-subjob)
 				;; despite this quit, the process may not be finished
 				(let ((kill-buffer-query-functions nil))
-					(kill-this-buffer))))
-
+					(kill-this-buffer)))
+			)
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       ;; The output is clean by the filter
@@ -198,6 +214,7 @@ Return the comint process buffer."
           ;; Tells what the cleaning regexp is (the prompts)
           (setq ob-sql-clean-output--regexp
                 ( concat "\\(" prompt-regexp "\\)"
+									"\\|\\(" ob-sql-session-terminator "\n\\)"
                   (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
           ;; clear the welcoming message out of the output from the
@@ -205,7 +222,7 @@ Return the comint process buffer."
           ;; we can't evaluate how long the connection will take
           ;; so if quiet mode is off and the connexion takes time
           ;; then the welcoming message may show up
-          (sleep-for 0.1)
+          (sleep-for 0.03)
           (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
           ;; SQL interactive terminal starts.
@@ -286,6 +303,7 @@ If buffer exists and a process is running, just switch to buffer `*SQL*'."
 							;; connexion is closed, buffer killed when there's no session
 							;; engine/user/db/session points to the same buffer otherwise
 
+							(message "%s" new-sqli-buffer)
 							;; Set SQLi mode.
 							;; why would we need this ?
 							;;(let ((sql-interactive-product product)) (sql-interactive-mode))
@@ -334,17 +352,22 @@ several times consecutively as the shell outputs and flush its message
 buffer"
 
   (push 0 org-babel-sql-hold-on)
+;;(message "%s" ob-sql-clean-output--regexp)
   (with-local-quit
     (let ((output (replace-regexp-in-string
                    ob-sql-clean-output--regexp ""
                    string nil 'literal)))
 
       ;; Inserting the result in the sql process buffer
-      ;; this way insert it in the terminal prompt and
+      ;; add it to the terminal prompt and
       ;; the ouput gets passed as input on the next command
-      ;; line; See `comint-redirect-setup' to fix that
+      ;; line; See `comint-redirect-setup' to possibly fix that
       ;;(with-current-buffer (process-buffer proc) (insert output))
 
+			
+			(when (string-match ob-sql-session-terminator string)
+				(setq ob-sql-session-command-terminated t))
+					 
       (with-current-buffer (get-buffer-create "*ob-sql-result*")
         (insert output)))))
 
@@ -353,8 +376,11 @@ buffer"
   "Send the string STR to the SQL process.
 Simplified version of `sql-send-string'"
 	;;(let ((s (replace-regexp-in-string "[[:space:]\n\r\t]+" "" str)))
-	(let ((s (replace-regexp-in-string "[\t]+" "" str)))
-	;(let ((s (org-babel-chomp str)))
+	(let ((s (concat
+						(replace-regexp-in-string "[\t]+" "" str)
+						";select '" ob-sql-session-terminator "';" )))
+				;;(let ((s (org-babel-chomp str)))
+		(message "%s" s)
       (with-current-buffer buffer
         (insert "\n")
         (comint-set-process-mark)
@@ -362,6 +388,7 @@ Simplified version of `sql-send-string'"
         (sql-input-sender (get-buffer-process (current-buffer)) s)
         ;; Send a command terminator
         (sql-send-magic-terminator buffer s sql-send-terminator))))
+				)))
 
 
 (add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))

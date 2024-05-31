@@ -71,10 +71,13 @@ org-mode 9.6.28.
   (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \.\.\.> ")
   #+end_src
 
+	#+RESULTS:
+		 ...> 
+
 sql.el has to be patched in order to run sqlite in memory
 (ob-sqlite has no session support either an requires a database)
 
-	#+begin_src sql-session :engine sqlite :results table
+	#+begin_src sql-session :engine sqlite :results table :database test.db
 .headers on
 		create table test("x","y");
 		insert into test values ("sqlite",sqlite_version());
@@ -84,23 +87,33 @@ sql.el has to be patched in order to run sqlite in memory
 #+end_src
 
 #+RESULTS:
-| x          |        y |
-| sqlite     |   3.40.1 |
-| 2024-05-31 | 15:27:44 |
+| Parse error: near ".": syntax error                     |
+| ;select -----;  .headers on create table test("x","y"); |
+| ^--- error here                                         |
 
+Here is a good test.
+Drop takes times and the output get off track
+if this is less than 0.3
+[[file:ob-sql-session.el::(sleep-for ]]
+(need to keep the buffer open then)
+#+begin_src sql-session :engine sqlite :database test.db :results output
+	drop table test;
+	create table test(one varchar(10), two smallint);
+	insert into test values('hello', 1);
+	insert into test values('world', 2);
+	select * from test;
+	select format("sqlite %s",sqlite_version()), date(), time();
 
-#+begin_src sql-session :engine sqlite :database test.db :results table
-		drop table test;
-		create table test(one varchar(10), two smallint);
-		insert into test values('hello', 1);
-		insert into test values('world', 2);
-		select * from test;
-		select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
+
 #+RESULTS:
-| hello         |          1 |          |
-| world         |          2 |          |
-| sqlite 3.40.1 | 2024-05-31 | 15:15:31 |
+: hello|1
+: world|2
+: sqlite 3.40.1|2024-05-31|20:38:33
+
+
+
+
 
 ** in order to run sqlite in memory
 =sql-database= can be /nil/ and no option given
@@ -136,11 +149,21 @@ modified   lisp/progmodes/sql.el
 
 #+end_src
 
+#+RESULTS:
+: table|test|test|2|CREATE TABLE test(an int, two char)
+: sqlite 3.40.1|2024-05-31|20:51:40
+
 Same session
 #+begin_src sql-session :engine sqlite :session A
 	create table test(an int, two char);
 	select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
+
+#+RESULTS:
+: Parse error: table test already exists
+:   create table test(an int, two char);
+:                ^--- error here
+: sqlite 3.40.1|2024-05-31|18:07:40
 
 
 
@@ -157,8 +180,8 @@ Same session
 
 #+RESULTS:
 : ::1
-: 06:03:17
-: 2024-05-31|06:03:17.346387+02
+: 22:51:30
+: 2024-05-31|22:51:29.935886+02
 
 ** Formatting results
 Requires the prompts to be filtered
@@ -202,13 +225,13 @@ input on a newline.
 
 ** Test against large output
 
-#+begin_src sql-session
-	drop  sequence serial;
+#+begin_src sql-session :engine postgres :dbuser dba :database test :dbserver localhost
+	drop sequence serial;
 	Create sequence serial start 1;
 	select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
 
-#+RESULTS:
+
 
 pass
 
