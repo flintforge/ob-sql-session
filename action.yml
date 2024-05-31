@@ -1,0 +1,5 @@
+
+uses: leotaku/elisp-check@master
+with:
+  check: ert
+  file: ob-sql-session-tests.el
