@@ -7,7 +7,7 @@
 #+date : [2024-05-29 Wed]
 License: GPL3
 
-[[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/action.yml/badge.svg)
+# [[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/action.yml/badge.svg)
 
 https://github.com/flintforge/ob-sql-session.el
 # https://7d.nz/org-babel-sql-session
