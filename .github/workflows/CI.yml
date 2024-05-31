@@ -1,5 +1,49 @@
-name: Emacs Lisp check
-uses: leotaku/elisp-check@v1.4.0
-  with:
-    check: ert
-    file: test.el
+name: test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      
+jobs:
+  test-builtin:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - 24.1
+          - 24.2
+          - 24.3
+          - 24.4
+          - 24.5
+          - 25.1
+          - 25.2
+          - 25.3
+          - 26.1
+          - 26.2
+          - 26.3
+          - 27.1
+          - 27.2
+          - 28.1
+          - 28.2
+          - 29.1
+          - release-snapshot
+          - snapshot
+        ignore_warnings:
+          - true
+        check:
+          - load-file
+          - byte-compile
+          - checkdoc
+    steps:
+    - uses: actions/checkout@v4
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+    - uses: leotaku/elisp-check@master
+      with:
+        check: ert
+        file: ob-sql-session-tests.el
+        
