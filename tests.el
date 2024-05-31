@@ -9,6 +9,19 @@
 (load-file "./ob-sql-session.el")
 
 
+;; redefine (or patch...)
+(defun sql-comint-sqlite (product &optional options buf-name)
+  "Create comint buffer and connect to SQLite."
+  ;; Put all parameters to the program (if defined) in a list and call
+  ;; make-comint.
+  (let ((params
+         (append options
+                 (if (and sql-database ;; allows connection to in-memory database.
+													(not (string-empty-p sql-database)))
+										 `(,(expand-file-name sql-database))))))
+    (sql-comint product params buf-name)))
+
+
 (defun results-block-contents (&optional position)
   "Return the contents of the *only* results block in the buffer.
 Assume the source block is at POSITION if non-nil."
@@ -64,11 +77,11 @@ Assume the source block is at POSITION if non-nil."
 		)))))
 
 (defun sqlite-test (code expect)
-	(babel-block-test #'setup "sql-session :engine sqlite :database test.db :session A " code expect))
+	(babel-block-test #'setup "sql-session :engine sqlite :session A" code expect))
 
 (ert-deftest sqllite-test-create ()
   "Simple select from no table."
-  (sqlite-test "drop table test; create table test(one varchar(10), two int);" nil))
+  (sqlite-test "create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-test-insert ()
   "Simple select from no table."

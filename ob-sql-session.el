@@ -378,7 +378,7 @@ Simplified version of `sql-send-string'"
 	;;(let ((s (replace-regexp-in-string "[[:space:]\n\r\t]+" "" str)))
 	(let ((s (concat
 						(replace-regexp-in-string "[\t]+" "" str)
-						";select '" ob-sql-session-terminator "';" )))
+						"\nselect '" ob-sql-session-terminator "';" )))
 		;;(let ((s (org-babel-chomp str)))
 		(message "%s" s)
     (with-current-buffer buffer
