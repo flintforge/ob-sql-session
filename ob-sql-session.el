@@ -66,7 +66,7 @@
 
 
 (defcustom org-babel-default-header-args:sql-session
-  '((:engine . "sqlite"))
+  '((:engine . nil))
   "Default header args."
   :group 'org-babel
   :safe t)
@@ -91,8 +91,9 @@
 				 (session-p (not (string= session "none")))
          (vars (org-babel--get-vars params))
          (results (split-string (cdr (assq :results params ))))
+				 (engine (if (not engine) (user-error "missing :engine") (intern engine)))
          (sql--buffer (org-babel-sql-session-session
-                       (intern engine) processed-params session session-p))
+                       engine processed-params session session-p))
 				 )
 
     ;; Substitute $vars in body with the associated value.
@@ -106,15 +107,18 @@
 
     (setq org-babel-sql-hold-on '(t))
 		(with-current-buffer (get-buffer sql--buffer)
-			;;(process-send-string sql--buffer body) ;; also works but needs processing
 			(ob-sql-send-string body (current-buffer))
 			(sleep-for 0.05) ; I'll read org-babel-comint-async-register an other day
 			;; let say the first command takes 1/10th s,
 			;; while the rest of the output	is every 50ms
 			(while (pop org-babel-sql-hold-on) (sleep-for 0.05))
 			;; remove filter
-			(set-process-filter (get-buffer-process sql--buffer) nil))
-
+			(set-process-filter (get-buffer-process sql--buffer) nil)
+			(when (not session-p)
+				(comint-quit-subjob)
+				;; despite this quit, the process may not be finished
+				(let ((kill-buffer-query-functions nil))
+					(kill-this-buffer))))
 
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
@@ -132,10 +136,9 @@
 				;; where does this extra | comes from ?
         (goto-char (point-min)) (delete-char 1))
 
-			(when (not session-p)
-				(comint-send-input)
-				(comint-send-eof) ;; (current-buffer))
-				(kill--buffer )))
+			;;(when (not session-p)
+				;;(sleep-for 0.3)
+
 
       (buffer-string)
       )))
@@ -147,6 +150,8 @@ named *SQL: [engine]:[user@server:/database]*
 clear the intermediate buffer from previous output,
 and set the process filter.
 Return the comint process buffer."
+	(unless engine
+		(user-error (format "missing :engine parameter")))
 
   (let* ((sql-database (cdr (assoc :database params)))
          (sql-user (cdr (assoc :dbuser params)))

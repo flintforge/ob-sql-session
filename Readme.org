@@ -200,7 +200,6 @@ input on a newline.
 
 ** Test against large output
 
-
 #+begin_src sql-session
 	drop  sequence serial;
 	Create sequence serial start 1;
@@ -218,4 +217,3 @@ see [[info:ert#Running Tests in Batch Mode][ert#Running Tests in Batch Mode]]
 - [ ] Provide password with [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
 - [ ] properties relative to the session (clean-output-regex)
 - [ ] testing
-
