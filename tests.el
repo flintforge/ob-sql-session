@@ -63,11 +63,6 @@ Assume the source block is at POSITION if non-nil."
 			     (should (string= expect (results-block-contents)))							 
 		)))))
 
-
-
-(simple-test "create table test(one varchar(10), two smallint);" nil)
-
-
 (defun sqlite-test (code expect)
 	(babel-block-test #'setup "sql-session :engine sqlite :session A " code expect))
 
