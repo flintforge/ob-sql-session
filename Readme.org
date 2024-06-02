@@ -6,7 +6,7 @@
 #+date : [2024-05-29 Wed]
 #+License: GPL3
 
-https://github.com/flintforge/ob-sql-session.el
+https://github.com/flintforge/ob-sql-session
 [[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/CI.yml/badge.svg]]
 # https://7d.nz/org-babel-sql-session
 
@@ -26,14 +26,13 @@ get sessions partially working over SQL.
 But more intersting is this comment in comint:
 file:/usr/local/share/emacs/29.3/lisp/comint.el.gz::3570
 
-Which brings two remarks:
+Which brings several remarks:
 
 - =Sql-redirect= can perfectly handle many batches of
   commands at once, but it relies on
   =accept-process-output= which is not the best way to
   handle redirections through comint, and sometimes get
-  clunky when bursts of outputs occurs with improper
-  synchronizations.
+  clunky when bursts of outputs occurs.
 
 - As long as the output is not a stream, relying on the
   detection of the prompt should not be necessary as
@@ -41,16 +40,25 @@ Which brings two remarks:
 
 - Misdirected output happens when using
   =org-babel-execute:sql-mode= with several commands or
-  longer execution times. =sql-redirect= can indeed accept
-  multiple commands. The problem comes from properly
-  handling =accept-process-output=.
+  longer execution times. The problem comes from
+  properly handling =accept-process-output=.
 
-The following has been tested on emacs 28, 29 and 30,
+- finally what happen with batches of commands with
+  buffered output and a prompt showing up for each
+  command ? No way to detect when it finishes, except
+  giving the job a long run, or adding a special
+        command in the end.
+
+The following reported to work on emacs 27 to 30,
 org-mode 9.6.28.
 
 
 #+begin_src elisp
-(use-package ob-sql-session)
+  (load-file "./ob-sql-session.el")
+#+end_src
+
+#+begin_src elisp
+;; (use-package ob-sql-session)
 #+end_src
 
 #  #+begin_src elisp
@@ -64,48 +72,73 @@ org-mode 9.6.28.
 # #+end_src
 
 
-  #+begin_src elisp
+#+begin_src elisp
   (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
   (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \.\.\.> ")
-  #+end_src
+#+end_src
 
-	
-sql.el has to be patched in order to run sqlite in memory
-(ob-sqlite has no session support either an requires a database)
+=sql-comint-sqlite= in =sql.el= needs to accept nil
+database in order to run sqlite in memory (=ob-sqlite=
+has no session support either and requires a database).
 
-	#+begin_src sql-session :engine sqlite :results table :database test.db
-.headers on
-		create table test("x","y");
-		insert into test values ("sqlite",sqlite_version());
-		insert into test values (date(),time());
-		select * from test;
-
+#+begin_src sql-session :engine sqlite :results table :database test.db
+  .headers on
+    create table test(x,y);
+    insert into test values ("sqlite",sqlite_version());
+    insert into test values (date(),time());
+    select * from test;
 #+end_src
 
 #+begin_src sql-session :engine sqlite
-	drop table test;
-	create table test(one varchar(10), two int);
-	-- create table test(one varchar(10), two int);
+  drop table test;
+  create table test(one text, two int);
+  select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
 
+#+RESULTS:
+: Parse error: no such table: test
+: sqlite 3.40.1|2024-06-01|00:33:05
 
-Here is a good test.
-Drop takes times and the output get off track
-if this is less than 0.3
-[[file:ob-sql-session.el::(sleep-for ]]
-(need to keep the buffer open then)
+#+begin_src sql-session :engine sqlite :database test.db
+        .echo on
+        create table test(a, b);
+        drop table test;
+#+end_src
+
+#+RESULTS:
+: create table test(a, b);
+: drop table test;
+: select '-----
+: ';
+
 #+begin_src sql-session :engine sqlite :database test.db :results output
-	drop table test;
-	create table test(one varchar(10), two smallint);
-	insert into test values('hello', 1);
-	insert into test values('world', 2);
-	select * from test;
-	select format("sqlite %s",sqlite_version()), date(), time();
+        drop table test;
+        create table test(one varchar(10), two smallint);
+        insert into test values('hello', 1);
+        insert into test values('world', 2);
+        select * from test;
 
 #+end_src
 
-** in order to run sqlite in memory
+#+RESULTS:
+: hello|1
+: world|2
+
+** In order to run sqlite in memory
 =sql-database= can be /nil/ and no option given
+
+#+begin_src elisp
+  (defun sql-comint-sqlite (product &optional options buf-name)
+    "Create comint buffer and connect to SQLite."
+    ;; Put all parameters to the program (if defined) in a list and call
+    ;; make-comint.
+    (let ((params
+           (append options
+                   (if (and sql-database ;; allows connection to in-memory database.
+                            (not (string-empty-p sql-database)))
+                       `(,(expand-file-name sql-database))))))
+      (sql-comint product params buf-name)))
+#+end_src
 
 #+begin_src patch
 modified   lisp/progmodes/sql.el
@@ -131,18 +164,18 @@ modified   lisp/progmodes/sql.el
 
 #+begin_src sql-session :engine sqlite
 
-	create table test(an int, two char);
-	SELECT *
-  FROM sqlite_schema;
-	select format("sqlite %s",sqlite_version()), date(), time();
+  create table test(an int, two char);
+  SELECT *
+    FROM sqlite_schema;
+  select format("sqlite %s",sqlite_version()), date(), time();
 
 #+end_src
 
 
 Same session
 #+begin_src sql-session :engine sqlite :session A
-	create table test(an int, two char);
-	select format("sqlite %s",sqlite_version()), date(), time();
+  create table test(an int, two char);
+  select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
 
 
@@ -152,8 +185,8 @@ Same session
 #+begin_src sql-session :engine postgres :dbuser (getenv "DBUSER") dba :database test :dbserver localhost
 
   select inet_client_addr();
-	select localtime(0);
-	select current_date, current_time;
+  select localtime(0);
+  select current_date, current_time;
 
 #+end_src
 
@@ -169,21 +202,18 @@ Requires the prompts to be filtered
   (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
   (sql-set-product-feature 'postgres :prompt-cont-regexp "")
   (setq sql-postgres-options (list
-            "--set=ON_ERROR_STOP=1"
-            (concat "--set=PROMPT1="
-              (sql-get-product-feature 'postgres :prompt-regexp ))
-            (concat "--set=PROMPT2="
-              (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-            "-q"
-            "-P" "pager=off"
-            "-P" "footer=off" "-A"
-            "--tuples-onlmmy"
-            ))
+                              "--set=ON_ERROR_STOP=1"
+                              (concat "--set=PROMPT1="
+                                      (sql-get-product-feature 'postgres :prompt-regexp ))
+                              (concat "--set=PROMPT2="
+                                      (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+                              "-q"
+                              "-P" "pager=off"
+                              "-P" "footer=off" "-A"
+                              "--tuples-only"
+                              ))
 
 #+end_src
-
-#+RESULTS:
-| --set=ON_ERROR_STOP=1 | --set=PROMPT1=SQL> | --set=PROMPT2= | -q | -P | pager=off | -P | footer=off | -A | -t |
 
 Default prompts regexp are
 : "^[-[:alnum:]_]*[-=][#>] "
@@ -205,16 +235,14 @@ input on a newline.
 ** Test against large output
 
 #+begin_src sql-session :engine postgres :dbuser dba :database test :dbserver localhost
-	drop sequence serial;
-	Create sequence serial start 1;
-	select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
+  drop sequence serial;
+  Create sequence serial start 1;
+  select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
-
 
 pass
 
 ** TODO >
-- [ ] Provide password with [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
+- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
 - [ ] properties relative to the session (clean-output-regex)
-- [ ] testing
-	
+- [ ] merge in ob-sql ?

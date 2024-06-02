@@ -83,14 +83,16 @@
 
 ;; the command that terminate a batch of commands
 ;; here is select '-----';
-;; while we can hold the command while output goes on.
-;; But since the prompt is showing off on every line of commands 
-;; ther's no way to figure out a batch of commands
-;; has terminated a special command is inserted at its end;
-;; However, if a stop on error is set, then the only
-;; remaining case is to also look for (depending on the client)
-;; ^ERROR: message indicating the command has terminated
-;; The latter isn't implemented.
+;; It's possible to hold the command while output goes on.  But
+;; since the prompt is showing off on every commands there's no
+;; way to figure out when batch of commands has terminated unless
+;; a special command is inserted in its end; However, if a stop
+;; on error is set, then the only remaining case is to also look
+;; for (depending on the client) an ^ERROR: string indicating the
+;; command has terminated The latter isn't implemented.
+;; Not very elegant, and problematic when headers are on.
+;; but I'm out of ideas. looking at ob-pyton-async perhaps ?
+
 (defvar ob-sql-session-terminator  "-----"  "clean prompts")
 
 (defun org-babel-execute:sql-session (body params)
@@ -126,10 +128,10 @@
 			;; while the rest of the output	is every 50ms
 			(while (or (not ob-sql-session-command-terminated)
 								 (pop org-babel-sql-hold-on))
-				;; (message "%s %s" ob-sql-session-command-terminated (current-time))
 				(sleep-for 0.03))
 			;; remove filter
 			(set-process-filter (get-buffer-process sql--buffer) nil)
+			(message "end...%s" session-p)
 			(when (not session-p)
 				(comint-quit-subjob)
 				;; despite this quit, the process may not be finished
@@ -172,7 +174,7 @@ Return the comint process buffer."
   (let* ((sql-database (cdr (assoc :database params)))
          (sql-user (cdr (assoc :dbuser params)))
          (sql-password (cdr (assoc :dbpassword params)))
-         (sql-server (cdr (assoc :dbserver params)))
+         (sql-server (cdr (assoc :dbhost params)))
          (buffer-name (format "%s%s://%s%s/%s"
                               (if (string= session "none") ""
                                 (format "[%s] " session))
@@ -223,7 +225,8 @@ Return the comint process buffer."
           ;; so if quiet mode is off and the connexion takes time
           ;; then the welcoming message may show up
           (sleep-for 0.03)
-          (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
+
+          ;(with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
           ;; SQL interactive terminal starts.
           ;; When setting a process filter, the output gets redirected
@@ -303,10 +306,8 @@ If buffer exists and a process is running, just switch to buffer `*SQL*'."
 							;; connexion is closed, buffer killed when there's no session
 							;; engine/user/db/session points to the same buffer otherwise
 
-							(message "%s" new-sqli-buffer)
 							;; Set SQLi mode.
-							;; why would we need this ?
-							;;(let ((sql-interactive-product product)) (sql-interactive-mode))
+							(let ((sql-interactive-product product)) (sql-interactive-mode))
 
 							;; Set the new buffer name
 
@@ -352,7 +353,6 @@ several times consecutively as the shell outputs and flush its message
 buffer"
 
   (push 0 org-babel-sql-hold-on)
-	;;(message "%s" ob-sql-clean-output--regexp)
   (with-local-quit
     (let ((output (replace-regexp-in-string
                    ob-sql-clean-output--regexp ""
@@ -380,7 +380,6 @@ Simplified version of `sql-send-string'"
 						(replace-regexp-in-string "[\t]+" "" str)
 						"\nselect '" ob-sql-session-terminator "';" )))
 		;;(let ((s (org-babel-chomp str)))
-		(message "%s" s)
     (with-current-buffer buffer
       (insert "\n")
       (comint-set-process-mark)

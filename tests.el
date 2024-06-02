@@ -48,19 +48,19 @@ Assume the source block is at POSITION if non-nil."
 
 (defun setup (body)
   "Initialise the test environment and run BODY."
-  (let ((old-sql-get-login (symbol-function 'sql-get-login)))
-    (unwind-protect
-	(progn
-	  (let ((org-babel-sql-session-start-interpreter-prompt
-					 (lambda (&rest _) t))
-					(org-confirm-babel-evaluate
-					 (lambda (lang body)
-						 (not (string= lang "sql-session"))))
-					;(sql-database ob-sql-session-test-database-path)
-					)
-	    (defalias 'sql-get-login 'ignore)
-	    (funcall body)))
-  (defalias 'sql-get-login 'old-sql-get-login))))
+  ;; (let ((old-sql-get-login (symbol-function 'sql-get-login)))
+  ;;   (unwind-protect
+	;; 			(progn
+					(let ((org-babel-sql-session-start-interpreter-prompt
+								 (lambda (&rest _) t))
+								(org-confirm-babel-evaluate
+								 (lambda (lang body)
+									 (not (string= lang "sql-session"))))
+																				;(sql-database ob-sql-session-test-database-path)
+								)
+						;;(defalias 'sql-get-login 'ignore)
+						(funcall body)))
+			;(defalias 'sql-get-login 'old-sql-get-login))))
 
 (defun babel-block-test (setup header code expect)
   "Execute SQL in a `sql-session' Babel block comparing the result against WANT."
@@ -72,7 +72,8 @@ Assume the source block is at POSITION if non-nil."
 #+end_src" header code)))
        (with-buffer-contents buffer-contents
 			     (org-babel-next-src-block)
-			     (org-ctrl-c-ctrl-c)
+			     ;;(org-ctrl-c-ctrl-c)
+					 (org-babel-execute-src-block)
 			     (should (string= expect (results-block-contents)))							 
 		)))))
 
