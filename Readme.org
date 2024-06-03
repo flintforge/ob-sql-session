@@ -1,8 +1,9 @@
-* Ob-sql-session
+
+#+TITLE: Ob-sql-session
 :PROPERTIES:
 :header-args:elisp: :results raw
 :END:
-#+author: Philippe Estival pe@7d.nz
+#+author: Phil Estival pe@7d.nz
 #+date : [2024-05-29 Wed]
 #+License: GPL3
 
@@ -12,21 +13,22 @@ https://github.com/flintforge/ob-sql-session
 
 ** Orb babel functions for SQL, with session
 =Org/ob-sql.el= does not provide a session mode because
-source blocks are passed as a command-line execution
-along the connexion arguments without any terminal (see
-for instance man:psql, option -c).
+source blocks are passed as an input file along the
+connexion arguments without any terminal (see for
+instance man:psql, option -c).
 
 =ob-sql-mode.el= was proposed as an alternative.  It
 relies on =sql-session= to open a client connection, then
 performs a simple =sql-redirect= as execution of the sql
-source block, before cleaning the prompt.  /ob-sql-mode/
-is not a "mode" per se. Yet it's a starting point to
-get sessions partially working over SQL.
+source block, before cleaning the prompt.
 
 But more intersting is this comment in comint:
 file:/usr/local/share/emacs/29.3/lisp/comint.el.gz::3570
 
 Which brings several remarks:
+
+- Session mode is only required when keeping a state.
+  In my case that's a =search_path= variable.
 
 - =Sql-redirect= can perfectly handle many batches of
   commands at once, but it relies on
@@ -35,23 +37,46 @@ Which brings several remarks:
   clunky when bursts of outputs occurs.
 
 - As long as the output is not a stream, relying on the
-  detection of the prompt should not be necessary as
-  comint records where a last output began.
+  detection of the prompt should not be necessary since
+  comint records where last output began.
 
 - Misdirected output happens when using
   =org-babel-execute:sql-mode= with several commands or
   longer execution times. The problem comes from
-  properly handling =accept-process-output=.
+  properly handling =accept-process-output= and
+  termination.
 
-- finally what happen with batches of commands with
-  buffered output and a prompt showing up for each
-  command ? No way to detect when it finishes, except
-  giving the job a long run, or adding a special
-        command in the end.
+- Finally what happen if we rely only on the prompt to
+  detect a command termination but for batches of
+  commands with buffered output and a prompt showing up
+  on each command? Then there's no way to detect when a
+  batch finishes, except by giving the job enough time
+  to complete, or adding a special command in the end.
 
-The following reported to work on emacs 27 to 30,
+We have two situations related to the client:
+1) It returns a message from a command. A regular
+   situation we are looing for.
+2) It is silent on the output, and we don't want to
+   echo every input, example: a =drop= on sqlite, a
+   =\set= or quiet mode on pgcli.
+
+We can conclude there are two solutions to run a SQL
+batch:
+
+1) Split the batch, run commands one by one, Identify
+   silent commands (starting with =\= for pgcli, no
+   semi-column at the end...), keep the execution on
+   hold while the next command did not output, and add
+   short frames for commands to complete buffered
+   output.
+
+2) add a termination command to the batch: an echo
+   command for instance, that stays in the client,
+   and not given to the db. A bit faster than 1).
+
+
+The following is reported to work on emacs 27 to 30,
 org-mode 9.6.28.
-
 
 #+begin_src elisp
   (load-file "./ob-sql-session.el")
@@ -61,62 +86,92 @@ org-mode 9.6.28.
 ;; (use-package ob-sql-session)
 #+end_src
 
-#  #+begin_src elisp
-#   (defun do-org-confirm-babel-evaluations (lang body)
-#     (not
-#      (or
-#       (string= lang "emacs-lisp")
-#       (string= lang "elisp")
-#       (string= lang "sql-session"))))
-#   (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
-# #+end_src
-
-
-#+begin_src elisp
-  (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-  (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \.\.\.> ")
+ #+begin_src elisp
+  (defun do-org-confirm-babel-evaluations (lang body)
+    (not
+     (or
+      (string= lang "elisp")
+      (string= lang "sqlite")
+      (string= lang "sql-session"))))
+  (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
 #+end_src
+
+#+RESULTS:
+do-org-confirm-babel-evaluations
+do-org-confirm-babel-evaluations
+
 
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
-has no session support either and requires a database).
+has +no session support either and requires a database+
+commit 68aa43885 merged in 9.7.2 yesterday:
+ob-sqlite: Use a transient in-memory database by default).
+
+#+begin_src sql-session :engine sqlite :results table :database test.db
+    --.headers on
+      create table test(x,y);
+      insert into test values ("sqlite",sqlite_version());
+      insert into test values (date(),time());
+      select * from test;
+#+end_src
+
+#+RESULTS:
+| Parse error: table test already exists                                        |
+| create table test(x,y);  insert into test values ("sqlite",sqlite_version()); |
+| ^--- error here                                                               |
+
 
 #+begin_src sql-session :engine sqlite :results table :database test.db
   .headers on
-    create table test(x,y);
-    insert into test values ("sqlite",sqlite_version());
-    insert into test values (date(),time());
-    select * from test;
+  --create table test(x,y);
+  delete from test;
+  insert into test values ("sqlite",sqlite_version());
+  insert into test values (date(),time());
+  select * from test;
 #+end_src
 
+#+RESULTS:
+| x          |        y |
+| sqlite     |   3.40.1 |
+| 2024-06-03 | 22:47:58 |
+
+
+#+begin_src sql-session :engine sqlite :results table :database test.db :session A
+  --delete from test;
+  insert into test values ('sqlite','3.40');
+  insert into test values (1,2);
+  select * from test;
+#+end_src
+
+#+RESULTS:
+| sqlite | 3.40 |
+|      1 |    2 |
+
 #+begin_src sql-session :engine sqlite
-  drop table test;
+  --drop table test;
   create table test(one text, two int);
   select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
 
 #+RESULTS:
-: Parse error: no such table: test
-: sqlite 3.40.1|2024-06-01|00:33:05
+: sqlite 3.40.1|2024-06-03|22:49:24
 
 #+begin_src sql-session :engine sqlite :database test.db
-        .echo on
-        create table test(a, b);
-        drop table test;
+  create table test(a, b);
+  drop table test;
 #+end_src
 
 #+RESULTS:
-: create table test(a, b);
-: drop table test;
-: select '-----
-: ';
+: Parse error: table test already exists
+:   create table test(a, b); drop table test;
+:                ^--- error here
 
 #+begin_src sql-session :engine sqlite :database test.db :results output
-        drop table test;
-        create table test(one varchar(10), two smallint);
-        insert into test values('hello', 1);
-        insert into test values('world', 2);
-        select * from test;
+  drop table test;
+  create table test(one varchar(10), two smallint);
+  insert into test values('hello', 1);
+  insert into test values('world', 2);
+  select * from test;
 
 #+end_src
 
@@ -139,6 +194,10 @@ has no session support either and requires a database).
                        `(,(expand-file-name sql-database))))))
       (sql-comint product params buf-name)))
 #+end_src
+
+#+RESULTS:
+sql-comint-sqlite
+sql-comint-sqlite
 
 #+begin_src patch
 modified   lisp/progmodes/sql.el
@@ -171,18 +230,53 @@ modified   lisp/progmodes/sql.el
 
 #+end_src
 
+#+RESULTS:
+: table|test|test|2|CREATE TABLE test(an int, two char)
+: sqlite 3.40.1|2024-06-03|22:14:46
 
+
+  create table test(an int, two char);
 Same session
 #+begin_src sql-session :engine sqlite :session A
   create table test(an int, two char);
+#+end_src
+
+#+RESULTS:
+: Parse error: table test already exists
+:   create table test(an int, two char);
+:                ^--- error here
+
+
+#+begin_src sql-session :engine sqlite :session A
   select format("sqlite %s",sqlite_version()), date(), time();
 #+end_src
 
+#+RESULTS:
+: sqlite 3.40.1|2024-06-03|21:54:48
 
 ** Test on postgres
-                   🡇
-: (setenv "DBUSER"    )
-#+begin_src sql-session :engine postgres :dbuser (getenv "DBUSER") dba :database test :dbserver localhost
+:PROPERTIES:
+:header-args: sql-session :engine postgres :database test :results table
+:END:
+                      🡇
+: (setenv "DBUSER"  "dba"  )
+
+#+begin_src sql-session :dbhost " " :results output
+
+  select inet_client_addr(); -- no host=socket
+  select localtime(0);
+  select current_date, 'hello world';
+
+#+end_src
+
+#+RESULTS:
+:
+: 21:40:20
+: 2024-06-03|all your nuts are belong to us
+
+
+Session starts
+#+begin_src sql-session :session A
 
   select inet_client_addr();
   select localtime(0);
@@ -191,12 +285,31 @@ Same session
 #+end_src
 
 #+RESULTS:
-: ::1
-: 22:51:30
-: 2024-05-31|22:51:29.935886+02
+|   21:41:03 |                    |
+| 2024-06-03 | 21:41:03.280359+02 |
+
+Error handling
+#+begin_src sql-session :session A
+  select current_time, 1;
+  select err;
+  select 'ok';
+#+end_src
+
+#+RESULTS:
+: 17:58:12.94369+02|1
+: ERROR:  column "err" does not exist
+: LINE 1: select err;
+:                ^
+: ok
+
+
+
+#+begin_src sql-session
+\echo :var
 
 ** Formatting results
-Requires the prompts to be filtered
+We are not relying on the prompt here.
+So they may even be set to empty string.
 #+begin_src elisp
 
   (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
@@ -215,13 +328,6 @@ Requires the prompts to be filtered
 
 #+end_src
 
-Default prompts regexp are
-: "^[-[:alnum:]_]*[-=][#>] "
-=PROMPT2= is the continuation prompt,
-displayed when a command spans over several line
-indicating when the sql shell expects more
-input on a newline.
-
 ** Variables
 #+name: test-sql-session
 #+begin_src sql-session :engine sqlite :var x="3.0"
@@ -231,18 +337,17 @@ input on a newline.
 #+RESULTS: test-sql-session
 : 0.333333333333333
 
-
 ** Test against large output
 
-#+begin_src sql-session :engine postgres :dbuser dba :database test :dbserver localhost
-  drop sequence serial;
+#+begin_src sql-session :engine postgres :database test
+--  drop sequence serial;
   Create sequence serial start 1;
   select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
 
-pass
+[X] pass
 
 ** TODO >
 - [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
 - [ ] properties relative to the session (clean-output-regex)
-- [ ] merge in ob-sql ?
+- [ ] merge into ob-sql?

@@ -79,10 +79,9 @@
     (dbpassword . :any)
     (database   . :any)))
 
-(defvar ob-sql-clean-output--regexp ""  "clean prompts")
 
 ;; the command that terminate a batch of commands
-;; here is select '-----';
+;; here it's \echo -----;
 ;; It's possible to hold the command while output goes on.  But
 ;; since the prompt is showing off on every commands there's no
 ;; way to figure out when batch of commands has terminated unless
@@ -93,7 +92,31 @@
 ;; Not very elegant, and problematic when headers are on.
 ;; but I'm out of ideas. looking at ob-pyton-async perhaps ?
 
-(defvar ob-sql-session-terminator  "-----"  "clean prompts")
+(defvar ob-sql-session--batch-end-indicator  "-----"  "indicate the end of a command batch")
+(defvar ob-sql-session--batch-max-time 10 "maximum time for a command execution before aborting")
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+(sql-set-product-feature 'postgres :prompt-cont-regexp "")
+(sql-set-product-feature 'postgres :batch-terminate
+												 (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+
+(sql-set-product-feature 'sqlite :batch-terminate
+												 (format ".print %s\n" ob-sql-session--batch-end-indicator))
+
+(setq sql-postgres-options (list
+                            "--set=ON_ERROR_STOP=1"
+                            (concat "--set=PROMPT1="
+                                    (sql-get-product-feature 'postgres :prompt-regexp ))
+                            (concat "--set=PROMPT2="
+                                    (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+                            ;;"-q" ;; quiet mode would also suppress CREATE FUNCTION
+                            "-P" "pager=off"
+                            "-P" "footer=off"
+														"-A"
+                            "--tuples-only"
+														;; an option to switch it internatly (\pset tuples_only)
+														;; would be intersting, but
+                            ))
+
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY using PARAMS."
@@ -131,7 +154,6 @@
 				(sleep-for 0.03))
 			;; remove filter
 			(set-process-filter (get-buffer-process sql--buffer) nil)
-			(message "end...%s" session-p)
 			(when (not session-p)
 				(comint-quit-subjob)
 				;; despite this quit, the process may not be finished
@@ -197,8 +219,7 @@ Return the comint process buffer."
       ;; otherwise initiate the connection
       (let*(
             ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
-            (prompt-regexp (sql-get-product-feature engine :prompt-regexp))
-						(prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp)))
+						)
 
         (save-window-excursion
 					(setq ob-sql-buffer
@@ -214,10 +235,12 @@ Return the comint process buffer."
 
 					;; not global, should be in a product feature or in an alist of the session
           ;; Tells what the cleaning regexp is (the prompts)
-          (setq ob-sql-clean-output--regexp
-                ( concat "\\(" prompt-regexp "\\)"
-									"\\|\\(" ob-sql-session-terminator "\n\\)"
-                  (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+
+					;; forget this
+          ;; (setq ob-sql-clean-output--regexp
+          ;;       ( concat "\\(" prompt-regexp "\\)"
+					;; 				"\\|\\(" ob-sql-session-terminator "\n\\)"
+          ;;         (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
           ;; clear the welcoming message out of the output from the
           ;; first command, in case we forgot the quiet mode.
@@ -226,7 +249,7 @@ Return the comint process buffer."
           ;; then the welcoming message may show up
           (sleep-for 0.03)
 
-          ;(with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
+					;; (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
           ;; SQL interactive terminal starts.
           ;; When setting a process filter, the output gets redirected
@@ -307,7 +330,7 @@ If buffer exists and a process is running, just switch to buffer `*SQL*'."
 							;; engine/user/db/session points to the same buffer otherwise
 
 							;; Set SQLi mode.
-							(let ((sql-interactive-product product)) (sql-interactive-mode))
+							;;(let ((sql-interactive-product product)) (sql-interactive-mode))
 
 							;; Set the new buffer name
 
@@ -354,46 +377,86 @@ buffer"
 
   (push 0 org-babel-sql-hold-on)
   (with-local-quit
-    (let ((output (replace-regexp-in-string
-                   ob-sql-clean-output--regexp ""
-                   string nil 'literal)))
+    (let* (
+					 (prompt-regexp (sql-get-product-feature sql-product :prompt-regexp))
+					 (prompt-cont-regexp (sql-get-product-feature sql-product :prompt-cont-regexp))
+           ;;(batch-terminate (sql-get-product-feature 'postgres :batch-terminate ))
+					 (output (replace-regexp-in-string
+										( concat "\\(" prompt-regexp "\\)"
+											"\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+											(when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)")))
+										""
+										string nil 'literal))
+					 )
 
-      ;; Inserting the result in the sql process buffer
+			;;(message "%s" output)
+			;; Inserting the result in the sql process buffer
       ;; add it to the terminal prompt and
       ;; the ouput gets passed as input on the next command
       ;; line; See `comint-redirect-setup' to possibly fix that
       ;;(with-current-buffer (process-buffer proc) (insert output))
 
-			
-			(when (string-match ob-sql-session-terminator string)
+			(when (string-match ob-sql-session--batch-end-indicator string)
 				(setq ob-sql-session-command-terminated t))
-			
+
       (with-current-buffer (get-buffer-create "*ob-sql-result*")
         (insert output)))))
 
+;; (defun ob-sql-split-commands (str)
+;;   "split the given string into a list of sql commands
+;; the separators are \n\\ and ;
+;; since \set commands don't requires a semi-colon...
+;; "
+;; 	(split-string str ";"))
+
+
+
 
 (defun ob-sql-send-string (str buffer)
-  "Send the string STR to the SQL process.
-Simplified version of `sql-send-string'"
-	;;(let ((s (replace-regexp-in-string "[[:space:]\n\r\t]+" "" str)))
+  "Process then Send the command STR to the SQL process.
+There is more to do here"
 	(let ((s (concat
-						(replace-regexp-in-string "[\t]+" "" str)
-						"\nselect '" ob-sql-session-terminator "';" )))
+						(replace-regexp-in-string
+						 ;; or the process will treat newlines as <enter>
+						 ;; no matter what, and then stop on error won't work
+						 ";\\([\s\t]*\n\\)*" "; "
+						 (replace-regexp-in-string
+							;; tabs are interperted as command completion
+							"[\t]+" " "
+							(replace-regexp-in-string
+							 "\s*--.*\n" "" ;; remove comments
+							 (replace-regexp-in-string
+							 "^\s*$" "" ;; strip blank lines
+							 str))))
+						"\n"
+						(sql-get-product-feature sql-product :batch-terminate))
+				))
+		;;(message "---< %s" s)
+
 		;;(let ((s (org-babel-chomp str)))
     (with-current-buffer buffer
-      (insert "\n")
-      (comint-set-process-mark)
+      ;;(insert "\n")
+      ;;(comint-set-process-mark)
       ;; Send the string, trim trailing whitespace
-      (sql-input-sender (get-buffer-process (current-buffer)) s)
+      ;(comint-accumulate);; (get-buffer-process (current-buffer)) s)
+			;;(comint-send-input (get-buffer-process (current-buffer)) s)
+
+			;; display it in the input buffer
+			 ;;(insert s)
+			 ;;(comint-send-input)
+
+			;; no way to stop on error...
+      ;;(sql-input-sender (get-buffer-process (current-buffer)) s)
+      (process-send-string (get-buffer-process (current-buffer)) s)
       ;; Send a command terminator
-      (sql-send-magic-terminator buffer s sql-send-terminator))))
-
-
+      ;;(sql-send-magic-terminator buffer s sql-send-terminator)
+			)))
+;;(comint-simple-send (get-buffer-process "*SQL: [A] postgres://dba@localhost:/test*") "select 1;")
 
 (add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))
 
 (with-eval-after-load "org"
-  (add-to-list 'org-src-lang-modes '("sql-session" . sql)))
+	(add-to-list 'org-src-lang-modes '("sql-session" . sql)))
 
 (provide 'ob-sql-session)
 
