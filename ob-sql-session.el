@@ -248,8 +248,7 @@ Return the comint process buffer."
           ;; so if quiet mode is off and the connexion takes time
           ;; then the welcoming message may show up
           (sleep-for 0.03)
-
-					;; (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
+					(with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
           ;; SQL interactive terminal starts.
           ;; When setting a process filter, the output gets redirected
