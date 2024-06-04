@@ -100,6 +100,7 @@ create table test(one varchar(10), two int);" nil))
 joining line isn't ideal on that. May consider solution (2)"
   (sqlite-test "create table test(x,y);
       select 1;
+
 "
  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
@@ -120,6 +121,9 @@ sqlite|3.4
   "create table."
   (sqlite-test "drop table test;" nil))
 
+(setq debug-on-error nil)
 (ert :new)
 (ert-delete-all-tests)
 ;;(eval-buffer)
+
+
