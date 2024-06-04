@@ -25,7 +25,7 @@ https://github.com/flintforge/ob-sql-session
 
 In this absence of session,
 the scope of setting this search path is
-limited to this query
+limited one query
  #+begin_src sql
   set search_path to test, public;
   show search_path;
@@ -36,26 +36,25 @@ limited to this query
 | search_path  |
 | test, public |
 
+Then it gets back to default
  #+begin_src sql 
   show search_path;
 #+end_src
-It's back to default
 | search_path     |
 |-----------------|
 | "$user", public |
 
 
-While of course it's kept when inside the same session
- #+begin_src sql-session :session PG :var path="test" 
+While of course it will be kept inside a continuing session
+ #+begin_src sql-session :var path="test" :session PG
   set search_path to $path, public;
   show search_path;
 #+end_src
 
 #+RESULTS:
-| SET          |
-| search_path  |
-| test, public |
-
+: SET
+: search_path
+: test, public
 
  #+begin_src sql-session :session PG :results table
   show search_path;
@@ -356,10 +355,8 @@ Error handling
 #+end_src
 ** Formatting results
 We are not relying on the prompt here.
-They may even be set to empty string if
-they turn out to be an annoyment (e.g.
-they get invited into the results).
-The terminal input remains usable though.
+They may even be set to empty string.
+The terminal input remains usable.
 
 #+begin_src elisp
 
@@ -373,11 +370,31 @@ The terminal input remains usable though.
                                       (sql-get-product-feature 'postgres :prompt-cont-regexp ))
                               "-q"
                               "-P" "pager=off"
-                              "-P" "footer=off" "-A"
+                              "-P" "footer=off" ; aligned and border provides tables but adds an extra line
                               "--tuples-only"
                               ))
 
 #+end_src
+
+
+
+#+begin_src sql-session :engine postgres :session PG :results table
+  --drop table A;
+  create table T(x int, y int, z int);
+  insert into T values (1,2,3);
+  insert into T values (4,5,6);
+
+#+end_src
+
+#+begin_src sql-session :engine postgres :session PG :results table
+  select * from T;
+#+end_src
+
+#+RESULTS:
+| x | y | z |
+| 1 | 2 | 3 |
+| 4 | 5 | 6 |
+
 
 ** Variables
 #+begin_example
@@ -391,7 +408,7 @@ The terminal input remains usable though.
 ** Test against large output
 
 #+begin_src sql-session :engine postgres :database test
---  drop sequence serial;
+  drop sequence serial;
   Create sequence serial start 1;
   select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
