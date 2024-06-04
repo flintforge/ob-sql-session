@@ -14,7 +14,7 @@ https://github.com/flintforge/ob-sql-session
 
 #+begin_example
 :PROPERTIES:
-:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser dba :session B
+:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser pg :session B
 :END:
 #+end_example
 
@@ -109,8 +109,9 @@ batch:
 
 2) add a termination command to the batch: an echo
    command for instance, that stays in the client,
-   and not given to the db. A bit faster than 1).
+   and not given to the db.
 
+   Opted for solution 2) 
 
 The following is reported to work on emacs 27 to 30,
 org-mode 9.6 and 9.7
@@ -133,18 +134,12 @@ org-mode 9.6 and 9.7
   (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
 #+end_src
 
-#+RESULTS:
-: do-org-confirm-babel-evaluations
-do-org-confirm-babel-evaluations
-do-org-confirm-babel-evaluations
-
-
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
-has ++no+ session support +either and requires a database+
+has +no+ session support +either and requires a database+
+(/commit 68aa43885/ merged in org 9.7.2: ob-sqlite: Use a transient in-memory database by default).
 
-- commit 68aa43885 merged in org 9.7.2: ob-sqlite: Use a transient in-memory database by default).
-
+Tests (intented to be run on org-mode) :
 #+begin_src sql-session :engine sqlite :results table :database test.db
     --.headers on
       create table test(x,y);
@@ -233,10 +228,6 @@ has ++no+ session support +either and requires a database+
       (sql-comint product params buf-name)))
 #+end_src
 
-#+RESULTS:
-sql-comint-sqlite
-sql-comint-sqlite
-
 #+begin_src patch
 modified   lisp/progmodes/sql.el
 @@ -5061,14 +5061,15 @@ sql-sqlite
@@ -292,7 +283,7 @@ Same session
 #+RESULTS:
 : sqlite 3.40.1|2024-06-03|21:54:48
 
-** Test on postgres
+** Test it on postgres
 :PROPERTIES:
 :header-args: sql-session :engine postgres :database test :results table
 :END:
@@ -384,6 +375,5 @@ They may even be set to empty string.
 - [X] pass
 
 ** TODO >
-- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
-- [ ] properties relative to the session (clean-output-regex)
+- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][=with-environment-variables=]]?
 - [ ] merge into ob-sql?
