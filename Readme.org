@@ -9,6 +9,46 @@ https://github.com/flintforge/ob-sql-session
 # https://7d.nz/org-babel-sql-session
 
 ** Orb babel functions for SQL, with session
+
+*** tl;dr
+
+#+begin_example
+:PROPERTIES:
+:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser dba :session B
+:END:
+#+end_example
+
+  #+begin_example
+  ,#+begin_src sql-session
+  drop sequence serial;
+  ,#+end_src
+  #+end_example
+
+  : DROP SEQUENCE
+
+  #+begin_example
+  ,#+begin_src sql-session
+  Create sequence serial start 1;
+  ,#+end_src
+  #+end_example
+
+  : CREATE SEQUENCE
+  
+#+begin_example
+,#+begin_src sql-session  :results table
+  select nextval('serial'),array(select generate_series(0, 5)) from generate_series(0, 5);
+,#+end_src
+#+end_example
+
+| 30 | {0,1,2,3,4,5} |
+| 31 | {0,1,2,3,4,5} |
+| 32 | {0,1,2,3,4,5} |
+| 33 | {0,1,2,3,4,5} |
+| 34 | {0,1,2,3,4,5} |
+| 35 | {0,1,2,3,4,5} |
+
+
+*** Explanations
 =Org/ob-sql.el= does not provide a session mode because
 source blocks are passed as an input file along the
 connexion arguments without any terminal (see for
@@ -25,7 +65,7 @@ file:/usr/local/share/emacs/29.3/lisp/comint.el.gz::3570
 Which brings several remarks:
 
 - Session mode is only required when keeping a state.
-  In my case that's a =search_path= variable.
+  In my case it was a =search_path= variable.
 
 - =Sql-redirect= can perfectly handle many batches of
   commands at once, but it relies on
@@ -131,7 +171,7 @@ has ++no+ session support +either and requires a database+
 #+RESULTS:
 | one        |      two |
 | sqlite     |   3.40.1 |
-| 2024-06-04 | 04:05:19 |
+| 2024-06-04 | 05:10:07 |
 
 
 #+begin_src sql-session :engine sqlite :results table :database test.db :session A
@@ -257,18 +297,18 @@ Same session
 :header-args: sql-session :engine postgres :database test :results table
 :END:
 
-#+begin_src sql-session :dbhost "" :results output
+#+begin_src sql-session :dbhost "" :results 
 
-  select inet_client_addr(); -- no host=socket
+  select inet_client_addr(); -- no host=socket, empty result
   select localtime(0);
   select current_date, 'hello world';
 
 #+end_src
 
 #+RESULTS:
-:
-: 21:40:20
-: 2024-06-03|all your nuts are belong to us
+: 
+: |07:16:14
+: |2024-06-04|hello world
 
 
 Session starts
@@ -341,7 +381,7 @@ They may even be set to empty string.
   select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
 
-[X] pass
+- [X] pass
 
 ** TODO >
 - [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
