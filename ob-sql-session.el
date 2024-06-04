@@ -233,15 +233,6 @@ Return the comint process buffer."
           (unless sql-term-proc
             (user-error (format "SQL %s didn't start" engine)))
 
-					;; not global, should be in a product feature or in an alist of the session
-          ;; Tells what the cleaning regexp is (the prompts)
-
-					;; forget this
-          ;; (setq ob-sql-clean-output--regexp
-          ;;       ( concat "\\(" prompt-regexp "\\)"
-					;; 				"\\|\\(" ob-sql-session-terminator "\n\\)"
-          ;;         (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
-
           ;; clear the welcoming message out of the output from the
           ;; first command, in case we forgot the quiet mode.
           ;; we can't evaluate how long the connection will take
