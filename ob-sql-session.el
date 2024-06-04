@@ -3,7 +3,7 @@
 ;; Copyright (C) 2024 Free Software Foundation, Inc.
 
 ;; Author: Phil Estival pe@7d.nz
-;; Package-Requires: ((emacs "28.2")) ((org "9.6"))
+;; Package-Requires: ((emacs "27.2")) ((org "9.5"))
 ;; Keywords: literate programming, reproducible research
 ;; URL: http://github.com/flintforge/ob-sql-session
 
@@ -66,7 +66,7 @@
 
 
 (defcustom org-babel-default-header-args:sql-session
-  '((:engine . nil))
+  '((:engine . "sqlite"))
   "Default header args."
   :group 'org-babel
   :safe t)
@@ -76,7 +76,7 @@
     (dbhost     . :any)
     (dbport     . :any)
     (dbuser     . :any)
-    (dbpassword . :any)
+    ;;(dbpassword . :any)
     (database   . :any)))
 
 
@@ -92,10 +92,8 @@
 ;; Not very elegant, and problematic when headers are on.
 ;; but I'm out of ideas. looking at ob-pyton-async perhaps ?
 
-(defvar ob-sql-session--batch-end-indicator  "-----"  "indicate the end of a command batch")
-(defvar ob-sql-session--batch-max-time 10 "maximum time for a command execution before aborting")
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-(sql-set-product-feature 'postgres :prompt-cont-regexp "")
+(defvar ob-sql-session--batch-end-indicator  "```"  "indicate the end of a command batch")
+
 (sql-set-product-feature 'postgres :batch-terminate
 												 (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 
@@ -111,8 +109,8 @@
                             ;;"-q" ;; quiet mode would also suppress CREATE FUNCTION
                             "-P" "pager=off"
                             "-P" "footer=off"
-														"-A"
-                            "--tuples-only"
+														;; "-A"
+                            ;;"--tuples-only"  
 														;; an option to switch it internatly (\pset tuples_only)
 														;; would be intersting, but
                             ))
@@ -123,13 +121,14 @@
 
   (let* (
          (processed-params (org-babel-process-params params))
-         (engine (cdr (assoc :engine processed-params)))
          (session (cdr (assoc :session processed-params)))
-				 (session-p (not (string= session "none")))
+         (engine  (cdr (assoc :engine processed-params)))
+				 (engine  (if (not engine) (user-error "missing :engine") (intern engine)))
          (vars (org-babel--get-vars params))
-         (results (split-string (cdr (assq :results params ))))
-				 (engine (if (not engine) (user-error "missing :engine") (intern engine)))
-         (sql--buffer (org-babel-sql-session-session
+         (results (split-string (cdr (assq :results processed-params ))))
+				 (session-p (not (string= session "none")))
+				 
+         (sql--buffer (org-babel-sql-session-connect
                        engine processed-params session session-p))
 				 )
 
@@ -142,18 +141,15 @@
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (erase-buffer))
 
-    (setq org-babel-sql-hold-on '(t))
 		(setq ob-sql-session-command-terminated nil)
 		(with-current-buffer (get-buffer sql--buffer)
 			(ob-sql-send-string body (current-buffer))
-			;;(sleep-for 0.05) ; see org-babel-comint-async-register next time
-			;; let say the first command takes 1/10th s,
-			;; while the rest of the output	is every 50ms
-			(while (or (not ob-sql-session-command-terminated)
-								 (pop org-babel-sql-hold-on))
+			;; check org-babel-comint-async-register 
+			(while (not ob-sql-session-command-terminated)
 				(sleep-for 0.03))
-			;; remove filter
+			;; command finished, remove filter
 			(set-process-filter (get-buffer-process sql--buffer) nil)
+			
 			(when (not session-p)
 				(comint-quit-subjob)
 				;; despite this quit, the process may not be finished
@@ -162,10 +158,7 @@
 			)
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
-      ;; The output is clean by the filter
-      ;; (replace-regexp ob-sql-clean-output--regexp "" nil nil nil t)
-      ;; would replace backward as we're at the end of input.
-
+      ;; output is cylean by the filter
       (when (member "table" results)
         ;;(org-table-convert-region (point-min)(point-max) "|")
       ;;; or
@@ -176,15 +169,11 @@
 				;; where does this extra | comes from ?
         (goto-char (point-min)) (delete-char 1))
 
-			;;(when (not session-p)
-			;;(sleep-for 0.3)
-
-
       (buffer-string)
       )))
 
 
-(defun org-babel-sql-session-session (engine params session session-p)
+(defun org-babel-sql-session-connect (engine params session session-p)
   "Starts the SQL client if it has not in a buffer
 named *SQL: [engine]:[user@server:/database]*
 clear the intermediate buffer from previous output,
@@ -193,10 +182,10 @@ Return the comint process buffer."
 	(unless engine
 		(user-error (format "missing :engine parameter")))
 
-  (let* ((sql-database (cdr (assoc :database params)))
-         (sql-user (cdr (assoc :dbuser params)))
-         (sql-password (cdr (assoc :dbpassword params)))
-         (sql-server (cdr (assoc :dbhost params)))
+  (let* ((sql-database	(cdr (assoc :database params)))
+         (sql-user			(cdr (assoc :dbuser params)))
+         (sql-password	(cdr (assoc :dbpassword params)))
+         (sql-server		(cdr (assoc :dbhost params)))
          (buffer-name (format "%s%s://%s%s/%s"
                               (if (string= session "none") ""
                                 (format "[%s] " session))
@@ -207,7 +196,11 @@ Return the comint process buffer."
          (ob-sql-buffer (format "*SQL: %s*" buffer-name))
          )
 
-    ;; session exists ?
+		(message "B %s ?%s??" ob-sql-buffer (sql-buffer-live-p ob-sql-buffer))
+		(sql-buffer-live-p (get-buffer "*SQL: [PG] postgres:///test*"))
+		
+		;; predicate is set when sql-interactive-mode is on
+		;; todo: just check the buffer process status
     (if (sql-buffer-live-p ob-sql-buffer)
         (progn
           ;; set again the filter
@@ -226,7 +219,7 @@ Return the comint process buffer."
 								(ob-sql-connect engine buffer-name session-p) ; start the client
 								))
         ;;(call-interactively '(lambda()(sql-product-interactive "postgres" "sql")))
-
+				
         (let ((sql-term-proc (get-buffer-process ob-sql-buffer))
               ;;(session-key (format "%s/%s/%s/%" engine session-buffer database user))
               )
@@ -258,10 +251,7 @@ Return the comint process buffer."
 Imported from sql.el with a few modification in order
 to prompt for authentication only if there's a missing
 parameter. Depending on the sql client the password
-may also be prompted.
-
-If buffer `*SQL*' exists but no process is running, make a new process.
-If buffer exists and a process is running, just switch to buffer `*SQL*'."
+should also be prompted. "
 
   ;; Get the value of product that we need
   (setq sql-product
@@ -274,132 +264,95 @@ If buffer exists and a process is running, just switch to buffer `*SQL*'."
       (when (sql-get-product-feature sql-product :sqli-comint-func)
         ;; If no new name specified or new name in buffer name,
         ;; try to pop to an active SQL interactive for the same product
-        (let ((buf (sql-find-sqli-buffer sql-product sql-connection)))
-          ;;    ;; We have a new name or sql-buffer doesn't exist or match
-          ;;    ;; Start by remembering where we start
-          (let ((start-buffer (current-buffer))
-                new-sqli-buffer rpt)
+        (let ((buf (sql-find-sqli-buffer sql-product sql-connection))
+							;;    ;; We have a new name or sql-buffer doesn't exist or match
+							;;    ;; Start by remembering where we start
+							(start-buffer (current-buffer))
+							(sqli-buffer rpt)
+							prompt-regexp (sql-get-product-feature 'postgres :prompt-regexp )
+							prompt-cont-regexp (sql-get-product-feature 'postgres :prompt-cont-regexp )
+							)
 
-            ;; Get credentials.
-            ;; either all fields are provided
-						;; or there's a specific case were no login is needed
-						;; or trigger the prompt
-            (or (and sql-database sql-user sql-server ) ;sql-port?
-								(eq sql-product 'sqlite) ;; sqlite allows in-memory db
-                (apply #'sql-get-login
-                       (sql-get-product-feature product :sqli-login)))
-						;; depending on client, password is forcefully prompted
+					;; store the regexp used to clear output
+					(sql-set-product-feature
+					 engine :ob-sql-session-clear-output
+					 ( concat "\\(" prompt-regexp "\\)"
+						 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+						 (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))					 
+          ;; Get credentials.
+          ;; either all fields are provided
+					;; or there's a specific case were no login is needed
+					;; or trigger the prompt
+          (or (and sql-database sql-user sql-server ) ;sql-port?
+							(eq sql-product 'sqlite) ;; sqlite allows in-memory db, w/o login
+              (apply #'sql-get-login
+										 (sql-get-product-feature product :sqli-login)))
+					;; depending on client, password is forcefully prompted
 
-            ;; Connect to database.
-            (setq rpt (sql-make-progress-reporter nil "Login"))
+					
+					
+          ;; Connect to database.
+          (setq rpt (sql-make-progress-reporter nil "Login"))
 
-            (let ((sql-user       (default-value 'sql-user))
-                  (sql-password   (default-value 'sql-password))
-                  (sql-server     (default-value 'sql-server))
-                  (sql-database   (default-value 'sql-database))
-                  (sql-port       (default-value 'sql-port))
-									;; default value was nil ?
-                  (sql-prompt-regexp (or (default-value 'sql-prompt-regexp) ""))
-                  (default-directory
-                   (or sql-default-directory
-                       default-directory)))
+          (let ((sql-user       (default-value 'sql-user))
+                (sql-password   (default-value 'sql-password))
+                (sql-server     (default-value 'sql-server))
+                (sql-database   (default-value 'sql-database))
+                (sql-port       (default-value 'sql-port))
+								;; default value was nil ?
+                (sql-prompt-regexp (or (default-value 'sql-prompt-regexp) ""))
+                (default-directory
+                 (or sql-default-directory
+                     default-directory)))
 
-              ;; The password wallet returns a function which supplies the password.
-              (when (functionp sql-password)
-                (setq sql-password (funcall sql-password)))
+            ;; The password wallet returns a function which supplies the password.
+            (when (functionp sql-password)
+              (setq sql-password (funcall sql-password)))
 
-              ;; Call the COMINT service
-							(setq
-							 new-sqli-buffer
-							 (funcall (sql-get-product-feature product :sqli-comint-func)
-												product
-												(sql-get-product-feature product :sqli-options)
-												(format "SQL: %s" sql-cnx)))
-							;; no need for a numbered buffer:
-							;; connexion is closed, buffer killed when there's no session
-							;; engine/user/db/session points to the same buffer otherwise
+            ;; Call the COMINT service
+						(setq
+						 sqli-buffer
+						 (funcall (sql-get-product-feature product :sqli-comint-func)
+											product
+											(sql-get-product-feature product :sqli-options)
+											(format "SQL: %s" sql-cnx)))
+						;; no need for a numbered buffer:
+						;; connexion is closed, buffer killed when there's no session
+						;; engine/user/db/session points to the same buffer otherwise
 
-							;; Set SQLi mode.
-							;;(let ((sql-interactive-product product)) (sql-interactive-mode))
+						;; Set SQLi mode.
+						(let ((sql-interactive-product product)) (sql-interactive-mode))
+						
+						(setq-local sql-buffer (buffer-name sqli-buffer))
 
-							;; Set the new buffer name
+						;; Set `sql-buffer' in the start buffer
+						(with-current-buffer start-buffer
+							(when (derived-mode-p 'sql-mode)
+								(setq sql-buffer (buffer-name sqli-buffer))
+								(run-hooks 'sql-set-sqli-hook)))
+						
+						;; Make sure the connection is complete
+						;; (Sometimes start up can be slow)
+						;;  and call the login hook
+						(let ((proc (get-buffer-process sqli-buffer))
+									(secs sql-login-delay)
+									(step 0.2))
+							(while (and proc
+													(memq (process-status proc) '(open run))
+													(or (accept-process-output proc step)
+															(<= 0.0 (setq secs (- secs step))))
+													(progn (goto-char (point-max))
+																 (not (re-search-backward sql-prompt-regexp 0 t))))
+								(sql-progress-reporter-update rpt)))
 
-							(setq-local sql-buffer (buffer-name new-sqli-buffer))
+						(run-hooks 'sql-login-hook))
 
-							;; Set `sql-buffer' in the start buffer
-							(with-current-buffer start-buffer
-								(when (derived-mode-p 'sql-mode)
-									(setq sql-buffer (buffer-name new-sqli-buffer))
-									(run-hooks 'sql-set-sqli-hook)))
+					(sql-progress-reporter-done rpt)
+					;; (goto-char (point-max))
 
-							;; Make sure the connection is complete
-							;; (Sometimes start up can be slow)
-							;;  and call the login hook
-							(let ((proc (get-buffer-process new-sqli-buffer))
-										(secs sql-login-delay)
-										(step 0.2))
-								(while (and proc
-														(memq (process-status proc) '(open run))
-														(or (accept-process-output proc step)
-																(<= 0.0 (setq secs (- secs step))))
-														(progn (goto-char (point-max))
-																	 (not (re-search-backward sql-prompt-regexp 0 t))))
-									(sql-progress-reporter-update rpt)))
-
-							;; (goto-char (point-max))
-							;; (when (re-search-backward sql-prompt-regexp nil t)
-							;; 	(run-hooks 'sql-login-hook))
-
-							;; (sql-progress-reporter-done rpt)
-							;; (goto-char (point-max))
-
-							;; (let ((sql-display-sqli-buffer-function t))
-							;; 	(sql-display-buffer new-sqli-buffer))
-							(get-buffer new-sqli-buffer)
-							))))
-		(user-error "No default SQL product defined: set `sql-product'")))
-
-
-(defun ob-sql-session-comint-output-filter (proc string)
-	"Process output gets redirected in a temporary buffer.It is called
-several times consecutively as the shell outputs and flush its message
-buffer"
-
-  (push 0 org-babel-sql-hold-on)
-  (with-local-quit
-    (let* (
-					 (prompt-regexp (sql-get-product-feature sql-product :prompt-regexp))
-					 (prompt-cont-regexp (sql-get-product-feature sql-product :prompt-cont-regexp))
-           ;;(batch-terminate (sql-get-product-feature 'postgres :batch-terminate ))
-					 (output (replace-regexp-in-string
-										( concat "\\(" prompt-regexp "\\)"
-											"\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
-											(when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)")))
-										""
-										string nil 'literal))
-					 )
-
-			;;(message "%s" output)
-			;; Inserting the result in the sql process buffer
-      ;; add it to the terminal prompt and
-      ;; the ouput gets passed as input on the next command
-      ;; line; See `comint-redirect-setup' to possibly fix that
-      ;;(with-current-buffer (process-buffer proc) (insert output))
-
-			(when (string-match ob-sql-session--batch-end-indicator string)
-				(setq ob-sql-session-command-terminated t))
-
-      (with-current-buffer (get-buffer-create "*ob-sql-result*")
-        (insert output)))))
-
-;; (defun ob-sql-split-commands (str)
-;;   "split the given string into a list of sql commands
-;; the separators are \n\\ and ;
-;; since \set commands don't requires a semi-colon...
-;; "
-;; 	(split-string str ";"))
-
-
+					(get-buffer sqli-buffer)
+					)))
+	(user-error "No default SQL product defined: set `sql-product'"))
 
 
 (defun ob-sql-send-string (str buffer)
@@ -416,24 +369,24 @@ There is more to do here"
 							(replace-regexp-in-string
 							 "\s*--.*\n" "" ;; remove comments
 							 (replace-regexp-in-string
-							 "^\s*$" "" ;; strip blank lines
-							 str))))
+								"^\s*$" "" ;; strip blank lines
+								str))))
 						"\n"
 						(sql-get-product-feature sql-product :batch-terminate))
-				))
-		;;(message "---< %s" s)
+					 ))
+		(message "---< %s" s)
 
 		;;(let ((s (org-babel-chomp str)))
     (with-current-buffer buffer
       ;;(insert "\n")
       ;;(comint-set-process-mark)
       ;; Send the string, trim trailing whitespace
-      ;(comint-accumulate);; (get-buffer-process (current-buffer)) s)
+																				;(comint-accumulate);; (get-buffer-process (current-buffer)) s)
 			;;(comint-send-input (get-buffer-process (current-buffer)) s)
 
 			;; display it in the input buffer
-			 ;;(insert s)
-			 ;;(comint-send-input)
+			;;(insert s)
+			;;(comint-send-input)
 
 			;; no way to stop on error...
       ;;(sql-input-sender (get-buffer-process (current-buffer)) s)
@@ -441,12 +394,34 @@ There is more to do here"
       ;; Send a command terminator
       ;;(sql-send-magic-terminator buffer s sql-send-terminator)
 			)))
-;;(comint-simple-send (get-buffer-process "*SQL: [A] postgres://dba@localhost:/test*") "select 1;")
 
-(add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))
+
+(defun ob-sql-session-comint-output-filter (proc string)
+	"Process output gets redirected in a temporary buffer.It is called
+several times consecutively as the shell outputs and flush its message
+buffer"
+
+  (with-local-quit
+			
+			(m "%s" string)
+			;; Inserting the result in the sql process buffer
+      ;; add it to the terminal prompt and
+      ;; the ouput gets passed as input on the next command
+      ;; line; See `comint-redirect-setup' to possibly fix that
+      ;;(with-current-buffer (process-buffer proc) (insert output))
+
+			(when (string-match ob-sql-session--batch-end-indicator string)
+				(setq ob-sql-session-command-terminated t))
+
+      (with-current-buffer (get-buffer-create "*ob-sql-result*")
+        (insert string))))
 
 (with-eval-after-load "org"
-	(add-to-list 'org-src-lang-modes '("sql-session" . sql)))
+	(add-to-list 'org-src-lang-modes '("sql-session" . sql))
+	(add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))
+	;;(add-to-list 'org-structure-template-alist '("sql" . "src sql-mode")
+	) ;; or (customize-variable 'org-structure-template-alist)
+
 
 (provide 'ob-sql-session)
 

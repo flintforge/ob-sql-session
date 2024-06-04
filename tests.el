@@ -8,7 +8,6 @@
 
 (load-file "./ob-sql-session.el")
 
-
 ;; redefine (or patch...)
 (defun sql-comint-sqlite (product &optional options buf-name)
   "Create comint buffer and connect to SQLite."

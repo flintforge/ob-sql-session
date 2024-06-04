@@ -2,53 +2,71 @@
 #+TITLE: Ob-sql-session
 [[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/CI.yml/badge.svg]]
 #+author: Phil Estival pe@7d.nz
-#+date : [2024-05-29 Wed]
+# date : [2024-05-29 Wed]
 #+License: GPL3
 
 https://github.com/flintforge/ob-sql-session
-# https://7d.nz/org-babel-sql-session
 
-** Orb babel functions for SQL, with session
+** Orb Babel functions for SQL, with session
 
-*** tl;dr
+*** Overview
+:PROPERTIES:
+:header-args: sql-session :engine postgres :database test :session PG :results table
+:header-args: sql         :engine postgres :database test :tangle yes 
+:END:
 
 #+begin_example
 :PROPERTIES:
-:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser pg :session B
+:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser pg
+:header-args: sql         :engine postgres :database test :tangle yes 
 :END:
 #+end_example
 
-  #+begin_example
-  ,#+begin_src sql-session
-  drop sequence serial;
-  ,#+end_src
-  #+end_example
 
-  : DROP SEQUENCE
+In this absence of session,
+the scope of setting this search path is
+limited to this query
+ #+begin_src sql
+  set search_path to test, public;
+  show search_path;
+#+end_src
 
-  #+begin_example
-  ,#+begin_src sql-session
-  Create sequence serial start 1;
-  ,#+end_src
-  #+end_example
+| SET          |
+|--------------|
+| search_path  |
+| test, public |
 
-  : CREATE SEQUENCE
-  
-#+begin_example
-,#+begin_src sql-session  :results table
-  select nextval('serial'),array(select generate_series(0, 5)) from generate_series(0, 5);
-,#+end_src
-#+end_example
-
-| 30 | {0,1,2,3,4,5} |
-| 31 | {0,1,2,3,4,5} |
-| 32 | {0,1,2,3,4,5} |
-| 33 | {0,1,2,3,4,5} |
-| 34 | {0,1,2,3,4,5} |
-| 35 | {0,1,2,3,4,5} |
+ #+begin_src sql 
+  show search_path;
+#+end_src
+It's back to default
+| search_path     |
+|-----------------|
+| "$user", public |
 
 
-*** Explanations
+While of course it's kept when inside the same session
+ #+begin_src sql-session :session PG :var path="test" 
+  set search_path to $path, public;
+  show search_path;
+#+end_src
+
+#+RESULTS:
+| SET          |
+| search_path  |
+| test, public |
+
+
+ #+begin_src sql-session :session PG :results table
+  show search_path;
+#+end_src
+
+#+RESULTS:
+| search_path  |
+| test, public |
+
+
+** Explanations
 =Org/ob-sql.el= does not provide a session mode because
 source blocks are passed as an input file along the
 connexion arguments without any terminal (see for
@@ -68,27 +86,25 @@ Which brings several remarks:
   In my case it was a =search_path= variable.
 
 - =Sql-redirect= can perfectly handle many batches of
-  commands at once, but it relies on
-  =accept-process-output= which is not the best way to
-  handle redirections through comint, and sometimes get
-  clunky when bursts of outputs occurs.
-
-- As long as the output is not a stream, relying on the
-  detection of the prompt should not be necessary since
-  comint records where last output began.
-
-- Misdirected output happens when using
-  =org-babel-execute:sql-mode= with several commands or
-  longer execution times. The problem comes from
+  commands at once, but relies on =accept-process-output=
+  which is not the best way to handle redirections
+  through comint since it can get clunky when not
+  managing bursts of outputs or termination or longer
+  execution times correctly. The problem comes from
   properly handling =accept-process-output= and
   termination.
+
+- Relying on the detection of the prompt should not be
+  necessary as long as comint can tell where last
+  output began.
 
 - Finally what happen if we rely only on the prompt to
   detect a command termination but for batches of
   commands with buffered output and a prompt showing up
   on each command? Then there's no way to detect when a
-  batch finishes, except by giving the job enough time
-  to complete, or adding a special command in the end.
+  batch finishes, except with some sort of IPC and by
+  giving the job enough time to complete. Or adding a
+  special command in the end.
 
 We have two situations related to the client:
 1) It returns a message from a command. A regular
@@ -124,6 +140,7 @@ org-mode 9.6 and 9.7
 ;; (use-package ob-sql-session)
 #+end_src
 
+Skip confirmations
  #+begin_src elisp
   (defun do-org-confirm-babel-evaluations (lang body)
     (not
@@ -133,6 +150,9 @@ org-mode 9.6 and 9.7
       (string= lang "sql-session"))))
   (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
 #+end_src
+
+#+RESULTS:
+: do-org-confirm-babel-evaluations
 
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
@@ -336,7 +356,11 @@ Error handling
 #+end_src
 ** Formatting results
 We are not relying on the prompt here.
-They may even be set to empty string.
+They may even be set to empty string if
+they turn out to be an annoyment (e.g.
+they get invited into the results).
+The terminal input remains usable though.
+
 #+begin_src elisp
 
   (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
@@ -356,12 +380,12 @@ They may even be set to empty string.
 #+end_src
 
 ** Variables
-#+name: test-sql-session
-#+begin_src sql-session :engine sqlite :var x="3.0"
+#+begin_example
+,#+begin_src sql-session :engine sqlite :var x="3.0"
   select 1/$x;
-#+end_src
+,#+end_src
+#+end_example
 
-#+RESULTS: test-sql-session
 : 0.333333333333333
 
 ** Test against large output
@@ -375,5 +399,6 @@ They may even be set to empty string.
 - [X] pass
 
 ** TODO >
-- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][=with-environment-variables=]]?
+- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]?
+- [ ] port number please
 - [ ] merge into ob-sql?
