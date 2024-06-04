@@ -73,7 +73,7 @@ batch:
 
 
 The following is reported to work on emacs 27 to 30,
-org-mode 9.6.28.
+org-mode 9.6 and 9.7
 
 #+begin_src elisp
   (load-file "./ob-sql-session.el")
@@ -94,15 +94,16 @@ org-mode 9.6.28.
 #+end_src
 
 #+RESULTS:
+: do-org-confirm-babel-evaluations
 do-org-confirm-babel-evaluations
 do-org-confirm-babel-evaluations
 
 
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
-has +no session support either and requires a database+
-commit 68aa43885 merged in 9.7.2 yesterday:
-ob-sqlite: Use a transient in-memory database by default).
+has ++no+ session support +either and requires a database+
+
+- commit 68aa43885 merged in org 9.7.2: ob-sqlite: Use a transient in-memory database by default).
 
 #+begin_src sql-session :engine sqlite :results table :database test.db
     --.headers on
@@ -128,9 +129,9 @@ ob-sqlite: Use a transient in-memory database by default).
 #+end_src
 
 #+RESULTS:
-| x          |        y |
+| one        |      two |
 | sqlite     |   3.40.1 |
-| 2024-06-03 | 22:47:58 |
+| 2024-06-04 | 04:05:19 |
 
 
 #+begin_src sql-session :engine sqlite :results table :database test.db :session A
@@ -255,10 +256,8 @@ Same session
 :PROPERTIES:
 :header-args: sql-session :engine postgres :database test :results table
 :END:
-                      🡇
-: (setenv "DBUSER"  "dba"  )
 
-#+begin_src sql-session :dbhost " " :results output
+#+begin_src sql-session :dbhost "" :results output
 
   select inet_client_addr(); -- no host=socket
   select localtime(0);
@@ -303,10 +302,10 @@ Error handling
 
 #+begin_src sql-session
 \echo :var
-
+#+end_src
 ** Formatting results
 We are not relying on the prompt here.
-So they may even be set to empty string.
+They may even be set to empty string.
 #+begin_src elisp
 
   (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
