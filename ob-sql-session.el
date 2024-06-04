@@ -247,7 +247,7 @@ Return the comint process buffer."
           ;; we can't evaluate how long the connection will take
           ;; so if quiet mode is off and the connexion takes time
           ;; then the welcoming message may show up
-          (sleep-for 0.05)
+          (sleep-for 0.06)
 					(with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
           ;; SQL interactive terminal starts.
