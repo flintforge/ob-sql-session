@@ -48,19 +48,14 @@ Assume the source block is at POSITION if non-nil."
 
 (defun setup (body)
   "Initialise the test environment and run BODY."
-  ;; (let ((old-sql-get-login (symbol-function 'sql-get-login)))
-  ;;   (unwind-protect
-	;; 			(progn
 	(let ((org-babel-sql-session-start-interpreter-prompt
 				 (lambda (&rest _) t))
 				(org-confirm-babel-evaluate
 				 (lambda (lang body)
 					 (not (string= lang "sql-session"))))
-																				;(sql-database ob-sql-session-test-database-path)
 				)
-		;;(defalias 'sql-get-login 'ignore)
 		(funcall body)))
-																				;(defalias 'sql-get-login 'old-sql-get-login))))
+
 
 (defun babel-block-test (setup header code expect)
   "Execute SQL in a `sql-session' Babel block comparing the result against WANT."
@@ -81,39 +76,50 @@ Assume the source block is at POSITION if non-nil."
 (defun sqlite-test (code expect)
 	(babel-block-test #'setup "sql-session :engine sqlite :session A" code expect))
 
-(ert-deftest sqllite-test-create ()
+(ert-deftest sqllite-001:test-create ()
   "create table."
-  (sqlite-test "create table test(one varchar(10), two int);" nil))
+  (sqlite-test ".headers off
+create table test(one varchar(10), two int);" nil))
 
-(ert-deftest sqllite-test-insert ()
+(ert-deftest sqllite-002:test-insert ()
   "insert into table."
   (sqlite-test "insert into test values(\'hello\',\'world\');" nil))
 
-(ert-deftest sqllite-test-select ()
+(ert-deftest sqllite-003:test-select ()
   "select from table."
   (sqlite-test "select * from test;" "hello|world"))
 
-(ert-deftest sqllite-test-tabs ()
+(ert-deftest sqllite-004:test-tabs ()
   "insert with tabs"
   (sqlite-test "
   		--create table test(x,y);
       select * from test;" "hello|world"))
 
-(ert-deftest sqllite-test-stop-on-error ()
+(ert-deftest sqllite-005:test-stop-on-error ()
   "stop on error.
 joining line isn't ideal on that. May consider solution (2)"
-  (sqlite-test "
-      create table test(x,y);
-      select 1;" "Parse error: table test already exists\n  create table test(x,y);select 1;\n               ^--- error here"))
+  (sqlite-test "create table test(x,y);
+      select 1;
+"
+ "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-(ert-deftest sqllite-test-header-on ()
+(ert-deftest sqllite-006:test-header-on ()
 	(sqlite-test "
 .headers on
 --create table test(x,y);
 delete from test;
-insert into test values ('sqlite','3.400');
+insert into test values ('sqlite','3.40');
 insert into test values (1,2);
 select * from test;"
 "one|two
 sqlite|3.4
 1|2"))
+
+
+(ert-deftest sqllite-007:test-drop ()
+  "create table."
+  (sqlite-test "drop table test;" nil))
+
+(ert :new)
+(ert-delete-all-tests)
+;;(eval-buffer)
