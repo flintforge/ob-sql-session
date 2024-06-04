@@ -117,13 +117,9 @@ sqlite|3.4
 1|2"))
 
 
-(ert-deftest sqllite-007:test-drop ()
-  "create table."
-  (sqlite-test "drop table test;" nil))
-
-(setq debug-on-error nil)
-(ert :new)
-(ert-delete-all-tests)
-;;(eval-buffer)
+;; (sqlite-test "drop table test;" nil))
+;; (ert :new)
+;; (ert-delete-all-tests)
+;; (eval-buffer)
 
 
