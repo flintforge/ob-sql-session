@@ -262,8 +262,7 @@ Returning error
 ** In order to run sqlite in memory
 =sql-database= can be /nil/ and no option given to =sql-comint-sqlite=
 
-#+begin_example
-,#+begin_src elisp
+#+begin_src elisp
   (defun sql-comint-sqlite (product &optional options buf-name)
     "Create comint buffer and connect to SQLite."
     ;; Put all parameters to the program (if defined) in a list and call
@@ -274,11 +273,10 @@ Returning error
                             (not (string-empty-p sql-database)))
                        `(,(expand-file-name sql-database))))))
       (sql-comint product params buf-name)))
-,#+end_src
-#+end_example
+#+end_src
 
-#+begin_example
-,#+begin_src patch
+
+#+begin_src patch
 modified   lisp/progmodes/sql.el
 @@ -5061,14 +5061,15 @@ sql-sqlite
    (interactive "P")
@@ -298,8 +296,8 @@ modified   lisp/progmodes/sql.el
 +                         `(,(expand-file-name sql-database))))))
      (sql-comint product params buf-name)))
 
-,#+end_src
-#+end_example
+#+end_src
+
 
 Test it:
 #+begin_example
@@ -513,8 +511,6 @@ parameters.
 
 ** Publishing an org file on github
 Turn code blocks to example
-
-
 
 #+name: src->example
 #+begin_src elisp
