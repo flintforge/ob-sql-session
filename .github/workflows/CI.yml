@@ -28,5 +28,5 @@ jobs:
     - uses: leotaku/elisp-check@master
       with:
         check: ert
-        file: tests.el
+        file: ob-sql-session-tests.el
         
