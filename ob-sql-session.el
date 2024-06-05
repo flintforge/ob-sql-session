@@ -102,15 +102,12 @@
 ;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 
 ;; continuation prompt can appear on the same line. why?
-;; remove ^ .
+;; remove ^ . from regex
 (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
-
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
 
-
-(sql-get-product-feature 'sqlite :prompt-cont-regexp)
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -372,7 +369,7 @@ should also be prompted. "
 
 
 (defun ob-sql-send-string (str buffer)
-  "Process then Send the command STR to the SQL process."
+  "Process then send the command STR to the SQL process."
   (let ((s (concat
             (replace-regexp-in-string
              ;; or the process will treat newlines as <enter>
@@ -402,10 +399,10 @@ buffer"
     
     (message string)
     ;; Inserting the result in the sql process buffer
-    ;; add it to the terminal prompt and
-    ;; the ouput gets passed as input on the next command
+    ;; adds it to the terminal prompt and as a result
+    ;; the ouput gets passed as input onto the next command
     ;; line; See `comint-redirect-setup' to possibly fix that
-    ;;(with-current-buffer (process-buffer proc) (insert output))
+    ;; (with-current-buffer (process-buffer proc) (insert output))
 
     (when (string-match ob-sql-session--batch-end-indicator string)
       (setq ob-sql-session-command-terminated t))

@@ -141,6 +141,12 @@ batch:
 The following is reported to work on emacs 27 to 30,
 org-mode 9.6 and 9.7
 
+
+DB tested:
+- Postgres 
+- Sqlite
+
+  
 ** usage
 
 #+begin_example
@@ -446,12 +452,12 @@ The terminal input remains usable.
 
 ** Test against large output
 
-#+begin_example
-,#+begin_src sql-session :engine postgres :database test
-  drop sequence serial;
-  Create sequence serial start 1;
-  select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
-,#+end_src
++begin_example
+#+begin_src sql :engine postgres :database test :var x=33
+  drop sequence serial2;
+  Create sequence serial2 start $x;
+  select nextval('serial2'),array(select generate_series(0, 200)) from generate_series(0, 250);
+#+end_src
 #+end_example
 
 - [X] pass
@@ -461,32 +467,25 @@ The terminal input remains usable.
 - [ ] port number please
 - [ ] merge into ob-sql?
 
-
 ** Tests
 
-the ERT tests set could be build from source blocks.
+ERT tests set could be build from source blocks.
 Interactive tests first, then automated, Greatly
 simplifying the sequence for different databases and
 parameters.
 
-#+begin_example
-,#+begin_src elisp :results silent
+#+begin_src elisp :results silent
   (save-window-excursion
-        (find-file "ob-sql-session-tests.el")
+    (find-file "ob-sql-session-tests.el")
     (eval-buffer)
-        (ert :new))
-,#+end_src
-#+end_example
+    (ert :new))
+#+end_src
 
-
-#+begin_example
-,#+begin_src elisp :results silent
+#+begin_src elisp :results silent
   (save-window-excursion
     (with-current-buffer "ob-sql-session-tests.el"
       (ert t)))
-  ,#+end_src
-#+end_example
-
+#+end_src
 
 ** Tests sqlite
 :PROPERTIES:
@@ -507,7 +506,6 @@ parameters.
   (kill-buffer "*SQL: [Tests] sqlite:///nil*"))
 ,#+end_src
 #+end_example
-
 
 ** Publishing an org file on github
 Turn code blocks to example
