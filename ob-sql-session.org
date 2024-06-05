@@ -1,0 +1,545 @@
+
+#+TITLE: Ob-sql-session
+[[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/CI.yml/badge.svg]]
+#+author: Phil Estival pe@7d.nz
+# date : [2024-05-29 Wed]
+#+License: GPL3
+https://github.com/flintforge/ob-sql-session
+
+** Orb Babel functions for SQL, with session
+*** Overview
+:PROPERTIES:
+:header-args: sql-session :engine postgres :database test :session PG :results table
+:header-args: sql         :engine postgres :database test :tangle yes
+:END:
+
+#+begin_example
+:PROPERTIES:
+:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser pg
+:header-args: sql         :engine postgres :database test :tangle yes
+:END:
+#+end_example
+
+
+In the absence of session,
+the scope of setting this search path is
+limited one query
+ #+begin_example
+,#+begin_src sql
+  set search_path to test, public;
+  show search_path;
+,#+end_src
+#+end_example
+
+
+| SET          |
+|--------------|
+| search_path  |
+| test, public |
+
+Then it gets back to default
+ #+begin_example
+,#+begin_src sql
+  show search_path;
+,#+end_src
+#+end_example
+
+
+| search_path     |
+|-----------------|
+| "$user", public |
+
+
+While of course it will be kept inside a continuing session
+ #+begin_example
+,#+begin_src sql-session :var path="test" :session PG :results table
+  set search_path to $path, public;
+  show search_path;
+,#+end_src
+#+end_example
+
+
+| SET          |
+| search_path  |
+|--------------|
+| test, public |
+
+ #+begin_example
+,#+begin_src sql-session :session PG :results table
+  show search_path;
+,#+end_src
+#+end_example
+
+
+| search_path  |
+|--------------|
+| test, public |
+
+
+** Explanations
+=Org/ob-sql.el= does not provide a session mode because
+source blocks are passed as an input file along the
+connexion arguments without any terminal (see for
+instance man:psql, option -c).
+
+=ob-sql-mode.el= was proposed as an alternative.  It
+relies on =sql-session= to open a client connection, then
+performs a simple =sql-redirect= as execution of the sql
+source block, before cleaning the prompt.
+
+But more interesting is this comment in comint:
+file:/usr/local/share/emacs/29.3/lisp/comint.el.gz::3570
+
+Which brings several remarks:
+
+- Session mode is only required when keeping a state.
+
+- =sql-redirect= can perfectly handle many batches of
+  commands at once, but relies on =accept-process-output=
+  which is not the best way to handle redirections
+  through comint since it can get clunky when not
+  managing bursts of outputs or termination or longer
+  execution times correctly. The problem comes from
+  properly handling =accept-process-output= and
+  termination.
+
+- Relying on the detection of the prompt should not be
+  necessary as long as comint can tell where last
+  output began.
+
+- Finally what happen if we rely only on the prompt to
+  detect a command termination but for batches of
+  commands with buffered output and a prompt showing up
+  on each command? Then there's no way to detect when a
+  batch finishes, except with some sort of IPC and by
+  giving the job enough time to complete. Or adding a
+  special command in the end.
+
+We have two situations related to the client:
+1) It returns a message from a command. A regular
+   situation we are looing for.
+2) It is silent on the output, and we don't want to
+   echo every input, example: a =drop= on sqlite, a
+   =\set= or quiet mode on psql.
+
+We can conclude there are two solutions to run a SQL
+batch:
+
+1) Split the batch, run commands one by one, Identify
+   silent commands (starting with =\= for pgcli, no
+   semi-column at the end...), keep the execution on
+   hold while the next command did not output, and add
+   short frames for commands to complete buffered
+   output.
+
+2) add a termination command to the batch: an echo
+   command for instance, that stays in the client,
+   and not given to the db.
+
+   Opted for solution 2)
+
+The following is reported to work on emacs 27 to 30,
+org-mode 9.6 and 9.7
+
+** usage
+
+#+begin_example
+,#+begin_src elisp
+  (load-file "./ob-sql-session.el")
+,#+end_src
+#+end_example
+
+
+#+begin_example
+,#+begin_src elisp
+;; (use-package ob-sql-session)
+,#+end_src
+#+end_example
+
+
+Skip confirmations
+ #+begin_example
+,#+begin_src elisp
+  (defun do-org-confirm-babel-evaluations (lang body)
+    (not
+     (or
+      (string= lang "elisp")
+      (string= lang "sqlite")
+      (string= lang "sql-session"))))
+  (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
+,#+end_src
+#+end_example
+
+
+:
+: do-org-confirm-babel-evaluations
+
+=sql-comint-sqlite= in =sql.el= needs to accept nil
+database in order to run sqlite in memory (=ob-sqlite=
+has +no+ session support +either and requires a database+
+(/commit 68aa43885/ merged in org 9.7: ob-sqlite: Use a transient in-memory database by default).
+
+Tests (intented to be run on org-mode) :
+#+begin_example
+,#+begin_src sql-session :engine sqlite :results table :database test.db
+  --.headers on
+  --drop table test;
+  create table test(x,y);
+  insert into test values ("sqlite",sqlite_version());
+  insert into test values (date(),time());
+  select * from test;
+,#+end_src
+#+end_example
+
+|     sqlite |   3.40.1 |
+| 2024-06-05 | 14:43:07 |
+
+Displaying header.
+#+begin_example
+,#+begin_src sql-session :engine sqlite  :database test.db :results table
+  .headers on
+  --create table test(x,y);
+  delete from test;
+  insert into test values ("sqlite",sqlite_version());
+  insert into test values (date(),time());
+  select * from test;
+,#+end_src
+#+end_example
+
+| one        |      two |
+| sqlite     |   3.40.1 |
+| 2024-06-05 | 14:42:01 |
+
+
+#+begin_example
+,#+begin_src sql-session :engine sqlite :results table :database test.db :session A
+  --delete from test;
+  insert into test values ('sqlite','3.40');
+  insert into test values (1,2);
+  select * from test;
+,#+end_src
+#+end_example
+
+| sqlite | 3.40 |
+|      1 |    2 |
+
+#+begin_example
+,#+begin_src sql-session :engine sqlite
+  --drop table test;
+  create table test(one text, two int);
+  select format("sqlite %s",sqlite_version()), date(), time();
+,#+end_src
+#+end_example
+
+: sqlite 3.40.1|2024-06-05|14:42:03
+
+Returning error
+#+begin_example
+,#+begin_src sql-session :engine sqlite :database test.db
+  create table test(a, b);
+  drop table test;
+,#+end_src
+#+end_example
+
+: Parse error: table test already exists
+:   create table test(a, b); drop table test;
+:                ^--- error here
+
+#+begin_example
+,#+begin_src sql-session :engine sqlite :database test.db :results output
+  drop table test;
+  create table test(one varchar(10), two smallint);
+  insert into test values('hello', 1);
+  insert into test values('world', 2);
+  select * from test;
+,#+end_src
+#+end_example
+
+:
+: hello|1
+: world|2
+
+** In order to run sqlite in memory
+=sql-database= can be /nil/ and no option given to =sql-comint-sqlite=
+
+#+begin_example
+,#+begin_src elisp
+  (defun sql-comint-sqlite (product &optional options buf-name)
+    "Create comint buffer and connect to SQLite."
+    ;; Put all parameters to the program (if defined) in a list and call
+    ;; make-comint.
+    (let ((params
+           (append options
+                   (if (and sql-database ;; allows connection to in-memory database.
+                            (not (string-empty-p sql-database)))
+                       `(,(expand-file-name sql-database))))))
+      (sql-comint product params buf-name)))
+,#+end_src
+#+end_example
+
+#+begin_example
+,#+begin_src patch
+modified   lisp/progmodes/sql.el
+@@ -5061,14 +5061,15 @@ sql-sqlite
+   (interactive "P")
+   (sql-product-interactive 'sqlite buffer))
+
+-(defun sql-comint-sqlite (product options &optional buf-name)
++(defun sql-comint-sqlite (product &optional options buf-name)
+   "Create comint buffer and connect to SQLite."
+   ;; Put all parameters to the program (if defined) in a list and call
+   ;; make-comint.
+   (let ((params
+          (append options
+-                 (if (not (string= "" sql-database))
+-                     `(,(expand-file-name sql-database))))))
++                 (if (and sql-database
++                         (not (string= "" sql-database)))
++                         `(,(expand-file-name sql-database))))))
+     (sql-comint product params buf-name)))
+
+,#+end_src
+#+end_example
+
+Test it:
+#+begin_example
+,#+begin_src sql-session :engine sqlite
+
+  create table test(an int, two char);
+  SELECT *
+    FROM sqlite_schema;
+  select format("sqlite %s",sqlite_version()), date(), time();
+
+,#+end_src
+#+end_example
+
+:
+: table|test|test|2|CREATE TABLE test(an int, two char)
+: sqlite 3.40.1|2024-06-05|01:46:55
+
+
+On a session
+#+begin_example
+,#+begin_src sql-session :engine sqlite :session A
+  create table test(an int, two char);
+,#+end_src
+#+end_example
+
+#+begin_example
+,#+begin_src sql-session :engine sqlite :session A
+  select format("sqlite %s",sqlite_version()), date(), time();
+,#+end_src
+#+end_example
+
+
+** Test it on postgres
+:PROPERTIES:
+:header-args: sql-session :engine postgres :database test :results table
+:END:
+
+#+begin_example
+,#+begin_src sql-session :dbhost ""
+
+  select inet_client_addr(); -- no host=socket, empty result
+  select localtime(0);
+  select current_date, 'hello world';
+
+,#+end_src
+#+end_example
+
+| inet_client_addr |             |
+| localtime        |             |
+| 17:09:35         |             |
+| current_date     | ?column?    |
+| 2024-06-05       | hello world |
+
+
+Session starts
+#+begin_example
+,#+begin_src sql-session :session A
+
+  select inet_client_addr();
+  select localtime(0), current_date;
+
+,#+end_src
+#+end_example
+
+| inet_client_addr |              |
+| localtime        | current_date |
+| 17:10:16         |   2024-06-05 |
+
+
+Error handling
+#+begin_example
+,#+begin_src sql-session :session A
+  select current_date, 1;
+  select err;
+  select 'ok';
+,#+end_src
+#+end_example
+
+| current_date                        | ?column? |
+| 2024-06-05                          |        1 |
+| ERROR:  column "err" does not exist |          |
+| LINE 1: select err;                 |          |
+| ^                                   |          |
+
+
+** Formatting results
+
+We are not relying on the prompts here,
+but a termination indicator,
+so they may even be set to empty string.
+The terminal input remains usable.
+
+#+begin_example
+,#+begin_src elisp
+
+  (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+  (sql-set-product-feature 'postgres :prompt-cont-regexp "")
+  (setq sql-postgres-options (list
+                              "--set=ON_ERROR_STOP=1"
+                              (concat "--set=PROMPT1="
+                                      (sql-get-product-feature 'postgres :prompt-regexp ))
+                              (concat "--set=PROMPT2="
+                                      (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+                              "-q"
+                              "-P" "pager=off"
+                              "-P" "footer=off" ; aligned and border provides tables but adds an extra line
+                              "--tuples-only"
+                              ))
+
+,#+end_src
+#+end_example
+
+
+#+begin_example
+,#+begin_src sql-session :engine postgres :session PG :results table
+  --drop table A;
+  create table T(x int, y int, z int);
+  insert into T values (1,2,3);
+  insert into T values (4,5,6);
+
+,#+end_src
+#+end_example
+
+| CREATE TABLE |
+| INSERT 0 1   |
+| INSERT 0 1   |
+
+#+begin_example
+,#+begin_src sql-session :engine postgres :session PG :results table
+  select * from T;
+,#+end_src
+#+end_example
+
+| x | y | z |
+| 1 | 2 | 3 |
+| 4 | 5 | 6 |
+
+** Variables
+#+begin_example
+,#+begin_src sql-session :engine sqlite :var x="3.0"
+  select 1/$x;
+,#+end_src
+#+end_example
+
+: 0.333333333333333
+
+** Test against large output
+
+#+begin_example
+,#+begin_src sql-session :engine postgres :database test
+  drop sequence serial;
+  Create sequence serial start 1;
+  select nextval('serial'),array(select generate_series(0, 200)) from generate_series(0, 250);
+,#+end_src
+#+end_example
+
+- [X] pass
+
+** TODO >
+- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]?
+- [ ] port number please
+- [ ] merge into ob-sql?
+
+
+** Tests
+
+the ERT tests set could be build from source blocks.
+Interactive tests first, then automated, Greatly
+simplifying the sequence for different databases and
+parameters.
+
+#+begin_example
+,#+begin_src elisp :results silent
+  (save-window-excursion
+  	(find-file "ob-sql-session-tests.el")
+    (eval-buffer)
+  	(ert :new))
+,#+end_src
+#+end_example
+
+
+#+begin_example
+,#+begin_src elisp :results silent
+  (save-window-excursion
+  	(with-current-buffer "ob-sql-session-tests.el"
+      (ert t)))
+  ,#+end_src
+#+end_example
+
+
+** Tests sqlite
+:PROPERTIES:
+:header-args: sql-session :engine sqlite :session Tests
+:END:
+
+#+begin_example
+,#+begin_src sql-session
+  .headers off
+  create table test(one varchar(10), two int);
+,#+end_src
+#+end_example
+
+
+#+begin_example
+,#+begin_src elisp
+(let ((kill-buffer-query-functions nil))
+  (kill-buffer "*SQL: [Tests] sqlite:///nil*"))
+,#+end_src
+#+end_example
+
+
+** Publishing an org file on github
+Turn code blocks to example
+
+
+
+#+name: src->example
+#+begin_src elisp
+  (save-excursion
+  	(replace-regexp "^#\\+RESULTS:\n" "" nil nil nil t)
+  	(goto-char (point-max))
+  	(replace-regexp "\\(\\#\\+begin_src .*$\\)"
+  									"#+begin_example\n,\\1" nil nil nil t)
+  	(goto-char (point-max))
+  	(replace-regexp "\\(\\#\\+end_src\s*$\\)"
+  									",\\1\n#+end_example" nil nil nil t))
+#+end_src
+
+or vice-versa
+#+name: example->src
+#+begin_src elisp
+
+  (save-excursion
+  	(replace-regexp "#\\+begin_example\n\\(,#\\+begin_src .*$\\)"
+  									"\\1" nil nil nil t)
+  	(goto-char (point-max))
+  	(replace-regexp "\\(,#\\+end_src\s*\n\\)#\\+end_example"
+  									"\\1" nil nil nil t))
+									#+end_src
+
+
+#+call: src->example()
+#+call: example->src()

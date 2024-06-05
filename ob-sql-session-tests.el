@@ -96,7 +96,8 @@ create table test(one varchar(10), two int);" nil))
       select * from test;" "hello|world"))
 
 
-;; gh is on SQLite version 3.37.2 2022-01-06, error message is slightly different
+;; gh is on SQLite version 3.37.2 2022-01-06,
+;; and its error message is slightly different
 ;; (ert-deftest sqllite-005:test-stop-on-error ()
 ;;   "stop on error.
 ;; joining line isn't ideal on that. May consider solution (2)"
@@ -106,7 +107,7 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-(ert-deftest sqllite-006:test-header-on ()
+(ert-deftest sqllite-005:test-header-on ()
 	(sqlite-test "
 .headers on
 --create table test(x,y);
@@ -118,11 +119,17 @@ select * from test;"
 sqlite|3.4
 1|2"))
 
+(ert-deftest sqllite-006:test-header-on ()
+	(sqlite-test "Drop table test;" nil))
+
+(ert-deftest sqllite-007:test-close-session()
+  (with-current-buffer "*SQL: [Tests] sqlite:///nil*"
+    (comint-quit-subjob)
+    (let ((kill-buffer-query-functions nil))
+      (kill-this-buffer))))
 
 ;; (ert :new)
-;; (sqlite-test "drop table test;" nil)
 ;; (ert t)
 ;; (ert-delete-all-tests)
 ;; (eval-buffer)
-;; (kill-buffer "*SQL: [Tests] sqlite:///nil*")
 
