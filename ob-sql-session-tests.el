@@ -1,9 +1,5 @@
 ;;; tests.el --- Tests for ob-sql-session.el -*- lexical-binding: t -*-
 
-;; batch run
-;;
-;;    ls *.el | entr emacs -batch -l ert -l ob-sql-mode-test.el -f ert-run-tests-batch-and-exit
-
 ;;; Code:
 
 (load-file "./ob-sql-session.el")
@@ -128,8 +124,8 @@ sqlite|3.4
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
 
+;; (eval-buffer)
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
-;; (eval-buffer)
 
