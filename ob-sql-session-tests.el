@@ -11,10 +11,10 @@
   ;; make-comint.
   (let ((params
          (append options
-								 ;; allows connection to in-memory database.
+                 ;; allows connection to in-memory database.
                  (if (and sql-database
-													(not (string-empty-p sql-database)))
-										 `(,(expand-file-name sql-database))))))
+                          (not (string-empty-p sql-database)))
+                     `(,(expand-file-name sql-database))))))
     (sql-comint product params buf-name)))
 
 
@@ -25,9 +25,9 @@ Assume the source block is at POSITION if non-nil."
   (save-excursion
     (progn
       (if position
-					(goto-char position)
-				(goto-char 0)
-				(org-babel-next-src-block))
+          (goto-char position)
+        (goto-char 0)
+        (org-babel-next-src-block))
       (goto-char (org-babel-where-is-src-block-result))
       (let ((result (org-babel-read-result)))
         result))))
@@ -37,20 +37,20 @@ Assume the source block is at POSITION if non-nil."
   `(save-excursion
      (with-temp-buffer
        (progn
-				 (goto-char 0)
-				 (insert ,s)
-				 (goto-char 0)
-				 ,@forms))))
+         (goto-char 0)
+         (insert ,s)
+         (goto-char 0)
+         ,@forms))))
 
 (defun setup (body)
   "Initialise the test environment and run BODY."
-	(let ((org-babel-sql-session-start-interpreter-prompt
-				 (lambda (&rest _) t))
-				(org-confirm-babel-evaluate
-				 (lambda (lang body)
-					 (not (string= lang "sql-session"))))
-				)
-		(funcall body)))
+  (let ((org-babel-sql-session-start-interpreter-prompt
+         (lambda (&rest _) t))
+        (org-confirm-babel-evaluate
+         (lambda (lang body)
+           (not (string= lang "sql-session"))))
+        )
+    (funcall body)))
 
 
 (defun babel-block-test (setup header code expect)
@@ -62,15 +62,15 @@ Assume the source block is at POSITION if non-nil."
 %s
 #+end_src" header code)))
        (with-buffer-contents buffer-contents
-														 (org-mode)
-														 (org-babel-next-src-block)
-														 ;;(org-ctrl-c-ctrl-c)
-														 (org-babel-execute-src-block)
-														 (should (string= expect (results-block-contents)))
-														 )))))
+                             (org-mode)
+                             (org-babel-next-src-block)
+                             ;;(org-ctrl-c-ctrl-c)
+                             (org-babel-execute-src-block)
+                             (should (string= expect (results-block-contents)))
+                             )))))
 
 (defun sqlite-test (code expect)
-	(babel-block-test #'setup "sql-session :engine sqlite :session Tests" code expect))
+  (babel-block-test #'setup "sql-session :engine sqlite :session Tests" code expect))
 
 (ert-deftest sqllite-001:test-create ()
   "create table."
@@ -88,7 +88,7 @@ create table test(one varchar(10), two int);" nil))
 (ert-deftest sqllite-004:test-tabs ()
   "insert with tabs"
   (sqlite-test "
-  		--create table test(x,y);
+      --create table test(x,y);
       select * from test;" "hello|world"))
 
 
@@ -104,7 +104,7 @@ create table test(one varchar(10), two int);" nil))
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
 (ert-deftest sqllite-005:test-header-on ()
-	(sqlite-test "
+  (sqlite-test "
 .headers on
 --create table test(x,y);
 delete from test;
@@ -116,7 +116,7 @@ sqlite|3.4
 1|2"))
 
 (ert-deftest sqllite-006:test-header-on ()
-	(sqlite-test "Drop table test;" nil))
+  (sqlite-test "Drop table test;" nil))
 
 (ert-deftest sqllite-007:test-close-session()
   (with-current-buffer "*SQL: [Tests] sqlite:///nil*"
