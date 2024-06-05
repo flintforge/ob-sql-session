@@ -15,7 +15,8 @@
   ;; make-comint.
   (let ((params
          (append options
-                 (if (and sql-database ;; allows connection to in-memory database.
+								 ;; allows connection to in-memory database.
+                 (if (and sql-database
 													(not (string-empty-p sql-database)))
 										 `(,(expand-file-name sql-database))))))
     (sql-comint product params buf-name)))
@@ -73,7 +74,7 @@ Assume the source block is at POSITION if non-nil."
 														 )))))
 
 (defun sqlite-test (code expect)
-	(babel-block-test #'setup "sql-session :engine sqlite :session A" code expect))
+	(babel-block-test #'setup "sql-session :engine sqlite :session Tests" code expect))
 
 (ert-deftest sqllite-001:test-create ()
   "create table."
@@ -118,9 +119,10 @@ sqlite|3.4
 1|2"))
 
 
-;; (sqlite-test "drop table test;" nil))
 ;; (ert :new)
+;; (sqlite-test "drop table test;" nil)
+;; (ert t)
 ;; (ert-delete-all-tests)
 ;; (eval-buffer)
-
+;; (kill-buffer "*SQL: [Tests] sqlite:///nil*")
 

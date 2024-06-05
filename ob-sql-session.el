@@ -99,8 +99,18 @@
 (sql-set-product-feature 'postgres :batch-terminate
 												 (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 
+;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+
+;; continuation prompt can appear on the same line. why?
+;; remove ^ .
+(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+(sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
+
 (sql-set-product-feature 'sqlite :batch-terminate
 												 (format ".print %s\n" ob-sql-session--batch-end-indicator))
+
+
+(sql-get-product-feature 'sqlite :prompt-cont-regexp)
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -164,6 +174,7 @@
 			(goto-char (point-min))
 			(replace-regexp ;; clear the output or prompt and termination
 			 (sql-get-product-feature engine :ob-sql-session-clear-output) "")
+			;;(message "replace %s" (sql-get-product-feature engine :ob-sql-session-clear-output))
 
 			;; some client can also directly format to tables
       (when (member "table" results)
@@ -325,7 +336,8 @@ should also be prompted. "
 					;; engine/user/db/session points to the same buffer otherwise
 
 					;; Set SQLi mode.
-					(let ((sql-interactive-product engine)) (sql-interactive-mode))
+					(when sql-database ;; sql-for-each-login needs a db param or fails
+						(let ((sql-interactive-product engine)) (sql-interactive-mode)))
 					
 					(setq-local sql-buffer (buffer-name sqli-buffer))
 

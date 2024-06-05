@@ -40,28 +40,29 @@ Then it gets back to default
  #+begin_src sql 
   show search_path;
 #+end_src
+
 | search_path     |
 |-----------------|
 | "$user", public |
 
 
 While of course it will be kept inside a continuing session
- #+begin_src sql-session :var path="test" :session PG
+ #+begin_src sql-session :var path="test" :session PG :results table
   set search_path to $path, public;
   show search_path;
 #+end_src
 
-#+RESULTS:
-: SET
-: search_path
-: test, public
+| SET          |
+| search_path  |
+|--------------|
+| test, public |
 
  #+begin_src sql-session :session PG :results table
   show search_path;
 #+end_src
 
-#+RESULTS:
 | search_path  |
+|--------------|
 | test, public |
 
 
@@ -82,7 +83,6 @@ file:/usr/local/share/emacs/29.3/lisp/comint.el.gz::3570
 Which brings several remarks:
 
 - Session mode is only required when keeping a state.
-  In my case it was a =search_path= variable.
 
 - =Sql-redirect= can perfectly handle many batches of
   commands at once, but relies on =accept-process-output=
@@ -110,7 +110,7 @@ We have two situations related to the client:
    situation we are looing for.
 2) It is silent on the output, and we don't want to
    echo every input, example: a =drop= on sqlite, a
-   =\set= or quiet mode on pgcli.
+   =\set= or quiet mode on psql.
 
 We can conclude there are two solutions to run a SQL
 batch:
@@ -130,6 +130,8 @@ batch:
 
 The following is reported to work on emacs 27 to 30,
 org-mode 9.6 and 9.7
+
+** usage
 
 #+begin_src elisp
   (load-file "./ob-sql-session.el")
@@ -156,7 +158,7 @@ Skip confirmations
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
 has +no+ session support +either and requires a database+
-(/commit 68aa43885/ merged in org 9.7.2: ob-sqlite: Use a transient in-memory database by default).
+(/commit 68aa43885/ merged in org 9.7: ob-sqlite: Use a transient in-memory database by default).
 
 Tests (intented to be run on org-mode) :
 #+begin_src sql-session :engine sqlite :results table :database test.db
@@ -168,12 +170,12 @@ Tests (intented to be run on org-mode) :
 #+end_src
 
 #+RESULTS:
-| Parse error: table test already exists                                        |
-| create table test(x,y);  insert into test values ("sqlite",sqlite_version()); |
-| ^--- error here                                                               |
+| Parse error: table test already exists                                         |
+| create table test(x,y);   insert into test values ("sqlite",sqlite_version()); |
+| ^--- error here                                                                |
 
 
-#+begin_src sql-session :engine sqlite :results table :database test.db
+#+begin_src sql-session :engine sqlite  :database test.db :results table
   .headers on
   --create table test(x,y);
   delete from test;
@@ -185,7 +187,7 @@ Tests (intented to be run on org-mode) :
 #+RESULTS:
 | one        |      two |
 | sqlite     |   3.40.1 |
-| 2024-06-04 | 05:10:07 |
+| 2024-06-05 | 01:38:13 |
 
 
 #+begin_src sql-session :engine sqlite :results table :database test.db :session A
@@ -206,7 +208,7 @@ Tests (intented to be run on org-mode) :
 #+end_src
 
 #+RESULTS:
-: sqlite 3.40.1|2024-06-03|22:49:24
+: sqlite 3.40.1|2024-06-05|01:38:44
 
 #+begin_src sql-session :engine sqlite :database test.db
   create table test(a, b);
@@ -247,6 +249,9 @@ Tests (intented to be run on org-mode) :
       (sql-comint product params buf-name)))
 #+end_src
 
+#+RESULTS:
+: sql-comint-sqlite
+
 #+begin_src patch
 modified   lisp/progmodes/sql.el
 @@ -5061,14 +5061,15 @@ sql-sqlite
@@ -280,10 +285,9 @@ modified   lisp/progmodes/sql.el
 
 #+RESULTS:
 : table|test|test|2|CREATE TABLE test(an int, two char)
-: sqlite 3.40.1|2024-06-03|22:14:46
+: sqlite 3.40.1|2024-06-05|01:46:55
 
 
-  create table test(an int, two char);
 Same session
 #+begin_src sql-session :engine sqlite :session A
   create table test(an int, two char);
@@ -354,7 +358,7 @@ Error handling
 \echo :var
 #+end_src
 ** Formatting results
-We are not relying on the prompt here.
+We are not relying on the prompts here.
 They may even be set to empty string.
 The terminal input remains usable.
 
@@ -419,3 +423,25 @@ The terminal input remains usable.
 - [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]?
 - [ ] port number please
 - [ ] merge into ob-sql?
+
+
+** Tests
+:PROPERTIES:
+:header-args: sql-session :engine sqlite :session Tests
+:END:
+
+the ERT tests set could be build from source blocks.
+Interactive tests first, then automated, Greatly
+simplifying the sequence and for different db and paramaters.
+
+#+begin_src sql-session 
+  .headers off
+  create table test(one varchar(10), two int);
+#+end_src
+
+#+RESULTS:
+
+#+begin_src elisp
+(let ((kill-buffer-query-functions nil))
+  (kill-buffer "*SQL: [Tests] sqlite:///nil*"))
+#+end_src
