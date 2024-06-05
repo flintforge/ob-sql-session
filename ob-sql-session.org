@@ -472,9 +472,9 @@ parameters.
 #+begin_example
 ,#+begin_src elisp :results silent
   (save-window-excursion
-  	(find-file "ob-sql-session-tests.el")
+        (find-file "ob-sql-session-tests.el")
     (eval-buffer)
-  	(ert :new))
+        (ert :new))
 ,#+end_src
 #+end_example
 
@@ -482,7 +482,7 @@ parameters.
 #+begin_example
 ,#+begin_src elisp :results silent
   (save-window-excursion
-  	(with-current-buffer "ob-sql-session-tests.el"
+    (with-current-buffer "ob-sql-session-tests.el"
       (ert t)))
   ,#+end_src
 #+end_example
@@ -515,13 +515,13 @@ Turn code blocks to example
 #+name: src->example
 #+begin_src elisp
   (save-excursion
-  	(replace-regexp "^#\\+RESULTS:\n" "" nil nil nil t)
-  	(goto-char (point-max))
-  	(replace-regexp "\\(\\#\\+begin_src .*$\\)"
-  									"#+begin_example\n,\\1" nil nil nil t)
-  	(goto-char (point-max))
-  	(replace-regexp "\\(\\#\\+end_src\s*$\\)"
-  									",\\1\n#+end_example" nil nil nil t))
+    (replace-regexp "^#\\+RESULTS:\n" "" nil nil nil t)
+    (goto-char (point-max))
+    (replace-regexp "\\(\\#\\+begin_src .*$\\)"
+                    "#+begin_example\n,\\1" nil nil nil t)
+    (goto-char (point-max))
+    (replace-regexp "\\(\\#\\+end_src\s*$\\)"
+                    ",\\1\n#+end_example" nil nil nil t))
 #+end_src
 
 or vice-versa
@@ -529,12 +529,12 @@ or vice-versa
 #+begin_src elisp
 
   (save-excursion
-  	(replace-regexp "#\\+begin_example\n\\(,#\\+begin_src .*$\\)"
-  									"\\1" nil nil nil t)
-  	(goto-char (point-max))
-  	(replace-regexp "\\(,#\\+end_src\s*\n\\)#\\+end_example"
-  									"\\1" nil nil nil t))
-									#+end_src
+    (replace-regexp "#\\+begin_example\n\\(,#\\+begin_src .*$\\)"
+                    "\\1" nil nil nil t)
+    (goto-char (point-max))
+    (replace-regexp "\\(,#\\+end_src\s*\n\\)#\\+end_example"
+                    "\\1" nil nil nil t))
+                                                                        #+end_src
 
 
 #+call: src->example()
