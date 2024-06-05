@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - '**.el'
+      - '**.yaml'
     branches:
       - main
       
