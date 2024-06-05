@@ -517,7 +517,7 @@ Turn code blocks to example
   (save-excursion
     (replace-regexp "^#\\+RESULTS:\n" "" nil nil nil t)
     (goto-char (point-max))
-    (replace-regexp "\\(\\#\\+begin_src .*$\\)"
+    (replace-regexp "\\(\\#\\+begin_src sql.*$\\)"
                     "#+begin_example\n,\\1" nil nil nil t)
     (goto-char (point-max))
     (replace-regexp "\\(\\#\\+end_src\s*$\\)"
@@ -529,7 +529,7 @@ or vice-versa
 #+begin_src elisp
 
   (save-excursion
-    (replace-regexp "#\\+begin_example\n\\(,#\\+begin_src .*$\\)"
+    (replace-regexp "#\\+begin_example\n\\(,#\\+begin_src sql.*$\\)"
                     "\\1" nil nil nil t)
     (goto-char (point-max))
     (replace-regexp "\\(,#\\+end_src\s*\n\\)#\\+end_example"
