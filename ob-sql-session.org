@@ -1,4 +1,3 @@
-
 #+TITLE: Ob-sql-session
 [[https://github.com/flintforge/ob-sql-session/actions][file:https://github.com/flintforge/ob-sql-session/actions/workflows/CI.yml/badge.svg]]
 #+author: Phil Estival pe@7d.nz
@@ -75,12 +74,11 @@ While of course it will be kept inside a continuing session
 |--------------|
 | test, public |
 
-
 ** Explanations
 =Org/ob-sql.el= does not provide a session mode because
 source blocks are passed as an input file along the
-connexion arguments without any terminal (see for
-instance man:psql, option -c).
+connexion arguments without any terminal, which is fast
+(see for instance man:psql, option -c).
 
 =ob-sql-mode.el= was proposed as an alternative.  It
 relies on =sql-session= to open a client connection, then
@@ -126,7 +124,7 @@ We can conclude there are two solutions to run a SQL
 batch:
 
 1) Split the batch, run commands one by one, Identify
-   silent commands (starting with =\= for pgcli, no
+   silent commands (starting with =\= for =psql=), no
    semi-column at the end...), keep the execution on
    hold while the next command did not output, and add
    short frames for commands to complete buffered
@@ -141,12 +139,10 @@ batch:
 The following is reported to work on emacs 27 to 30,
 org-mode 9.6 and 9.7
 
-
 DB tested:
-- Postgres 
+- Postgres
 - Sqlite
 
-  
 ** usage
 
 #+begin_example
@@ -154,14 +150,6 @@ DB tested:
   (load-file "./ob-sql-session.el")
 ,#+end_src
 #+end_example
-
-
-#+begin_example
-,#+begin_src elisp
-;; (use-package ob-sql-session)
-,#+end_src
-#+end_example
-
 
 Skip confirmations
  #+begin_example
@@ -176,9 +164,6 @@ Skip confirmations
 ,#+end_src
 #+end_example
 
-
-:
-: do-org-confirm-babel-evaluations
 
 =sql-comint-sqlite= in =sql.el= needs to accept nil
 database in order to run sqlite in memory (=ob-sqlite=
@@ -335,7 +320,6 @@ On a session
 ,#+end_src
 #+end_example
 
-
 ** Test it on postgres
 :PROPERTIES:
 :header-args: sql-session :engine postgres :database test :results table
@@ -387,6 +371,31 @@ Error handling
 | ERROR:  column "err" does not exist |          |
 | LINE 1: select err;                 |          |
 | ^                                   |          |
+
+
+Stored procedure
+#+begin_src sql-session :session A
+  create or replace function test(valid boolean) returns text as
+  $$
+    begin
+      if valid then return true;
+      else
+        RAISE EXCEPTION '%', 'woops';
+      end if;
+    end
+
+  $$ stable language plpgsql;
+
+  select test(true);
+  select test(false);
+
+#+end_src
+
+| CREATE FUNCTION                                           |
+| test                                                      |
+| true                                                      |
+| ERROR:  woops                                             |
+| CONTEXT:  PL/pgSQL function test(boolean) line 4 at RAISE |
 
 
 ** Formatting results
@@ -509,7 +518,6 @@ parameters.
 
 ** Publishing an org file on github
 Turn code blocks to example
-
 #+name: src->example
 #+begin_src elisp
   (save-excursion
@@ -533,7 +541,6 @@ or vice-versa
     (replace-regexp "\\(,#\\+end_src\s*\n\\)#\\+end_example"
                     "\\1" nil nil nil t))
                                                                         #+end_src
-
 
 #+call: src->example()
 #+call: example->src()
