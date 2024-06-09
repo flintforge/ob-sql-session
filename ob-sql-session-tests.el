@@ -64,7 +64,6 @@ Assume the source block is at POSITION if non-nil."
        (with-buffer-contents buffer-contents
                              (org-mode)
                              (org-babel-next-src-block)
-                             ;;(org-ctrl-c-ctrl-c)
                              (org-babel-execute-src-block)
                              (should (string= expect (results-block-contents)))
                              )))))
@@ -90,7 +89,6 @@ create table test(one varchar(10), two int);" nil))
   (sqlite-test "
       --create table test(x,y);
       select * from test;" "hello|world"))
-
 
 ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different

@@ -14,7 +14,7 @@ https://github.com/flintforge/ob-sql-session
 
 #+begin_example
 :PROPERTIES:
-:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser pg
+:header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser (getenv "pguser")
 :header-args: sql         :engine postgres :database test :tangle yes
 :END:
 #+end_example
@@ -458,6 +458,8 @@ The terminal input remains usable.
 #+end_example
 
 : 0.333333333333333
+
+Variables will also be substitued in litteral strings (eg '$var').
 
 ** Test against large output
 

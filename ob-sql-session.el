@@ -45,16 +45,12 @@
 ;; $ by the associated value. This does not declare new variables
 ;; (with a \set command for instance) as they would be stateful and
 ;; span over blocks in sessions.
-;; Stored procedures are beyond the scope of ob-sql.
 
 ;; Not implemented
 ;; - dbconnection
-;; - dbpassword : on postgres, will still be prompted
-;;                on the first connection
-
-;; Since this is labeled with "reproducible research" and "litterate
-;; programming", one may consider that a "session" implies an on-going
-;; state, that, in order to be reproducible, must preserve a sequence.
+;; - dbpassword : will be prompted on the first connection
+;;
+;; Commands blocks are passed to the terminal as one unique line
 
 ;;; Code:
 
@@ -81,7 +77,7 @@
 
 
 ;; the command that terminate a batch of commands
-;; here it's \echo -----;
+;; (with \echo -----; for instance)
 ;; It's possible to hold the command while output goes on.  But
 ;; since the prompt is showing off on every commands there's no
 ;; way to figure out when batch of commands has terminated unless
@@ -119,7 +115,7 @@
                             "-P" "pager=off"
                             "-P" "footer=off"
                             "-A"
-                            ;;"--tuples-only"  
+                            ;;"--tuples-only"
                             ;; an option to switch it internatly (\pset tuples_only)
                             ;; would be intersting, but
                             ))
@@ -136,7 +132,7 @@
          (vars (org-babel--get-vars params))
          (results (split-string (cdr (assq :results processed-params ))))
          (session-p (not (string= session "none")))
-         
+
          (sql--buffer (org-babel-sql-session-connect
                        engine processed-params session session-p))
          )
@@ -153,12 +149,12 @@
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
       (ob-sql-send-string body (current-buffer))
-      ;; check org-babel-comint-async-register 
+      ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
         (sleep-for 0.03))
       ;; command finished, remove filter
       (set-process-filter (get-buffer-process sql--buffer) nil)
-      
+
       (when (not session-p)
         (comint-quit-subjob)
         ;; despite this quit, the process may not be finished
@@ -166,8 +162,8 @@
           (kill-this-buffer)))
       )
     ;; get results
-    (with-current-buffer (get-buffer-create "*ob-sql-result*")          
-      
+    (with-current-buffer (get-buffer-create "*ob-sql-result*")
+
       (goto-char (point-min))
       (replace-regexp ;; clear the output or prompt and termination
        (sql-get-product-feature engine :ob-sql-session-clear-output) "")
@@ -211,7 +207,7 @@ Return the comint process buffer."
                               sql-database))
          (ob-sql-buffer (format "*SQL: %s*" buffer-name))
          )
-    
+
     ;; predicate is set when sql-interactive-mode is on
     ;; todo: just check the buffer process status
     ;; so we don't have to turn sql-interactive on
@@ -228,7 +224,7 @@ Return the comint process buffer."
         (setq ob-sql-buffer
               (ob-sql-connect engine buffer-name session-p) ; start the client
               ))
-      
+
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" engine)))
@@ -273,7 +269,7 @@ should also be prompted. "
 
   (if (not engine)
       (user-error "No default SQL engine defined: set `sql-product'")
-    
+
     (when (sql-get-product-feature sql-product :sqli-comint-func)
       ;; If no new name specified or new name in buffer name,
       ;; try to pop to an active SQL interactive for the same engine
@@ -283,7 +279,7 @@ should also be prompted. "
             (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
             (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
             (start-buffer (current-buffer))
-            sqli-buffer rpt             
+            sqli-buffer rpt
             )
 
         ;; store the regexp used to clear output (prompt1|indicator|prompt2)
@@ -292,7 +288,7 @@ should also be prompted. "
          ( concat "\\(" prompt-regexp "\\)"
            "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
            (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
-        
+
         ;; Get credentials.
         ;; either all fields are provided
         ;; or there's a specific case were no login is needed
@@ -301,8 +297,8 @@ should also be prompted. "
             (eq sql-product 'sqlite) ;; sqlite allows in-memory db, w/o login
             (apply #'sql-get-login
                    (sql-get-product-feature engine :sqli-login)))
-        ;; depending on client, password is forcefully prompted         
-        
+        ;; depending on client, password is forcefully prompted
+
         ;; Connect to database.
         (setq rpt (sql-make-progress-reporter nil "Login"))
 
@@ -335,7 +331,7 @@ should also be prompted. "
           ;; Set SQLi mode.
           (when sql-database ;; sql-for-each-login needs a db param or fails
             (let ((sql-interactive-product engine)) (sql-interactive-mode)))
-          
+
           (setq-local sql-buffer (buffer-name sqli-buffer))
 
           ;; Set `sql-buffer' in the start buffer
@@ -343,7 +339,7 @@ should also be prompted. "
             (when (derived-mode-p 'sql-mode)
               (setq sql-buffer (buffer-name sqli-buffer))
               (run-hooks 'sql-set-sqli-hook)))
-          
+
 
           ;; complete login
           ;; todo: replace with a comint filter
@@ -371,10 +367,14 @@ should also be prompted. "
 (defun ob-sql-send-string (str buffer)
   "Process then send the command STR to the SQL process."
   (let ((s (concat
+            ;; join as a one line command
             (replace-regexp-in-string
+             "[\s\t]*\n" " "
              ;; or the process will treat newlines as <enter>
              ;; no matter what, and then stop on error won't work
-             ";\\([\s\t]*\n\\)*" "; "
+             ;; It works, but risky for input that contains newline
+             ;; and harder to debug
+             ;; the best option would be 1)
              (replace-regexp-in-string
               ;; tabs are interperted as command completion
               "[\t]+" " "
@@ -396,7 +396,7 @@ several times consecutively as the shell outputs and flush its message
 buffer"
 
   (with-local-quit
-    
+
     (message string)
     ;; Inserting the result in the sql process buffer
     ;; adds it to the terminal prompt and as a result
