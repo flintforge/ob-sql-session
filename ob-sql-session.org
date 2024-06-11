@@ -22,7 +22,7 @@ https://github.com/flintforge/ob-sql-session
 
 In the absence of session,
 the scope of setting this search path is
-limited one query
+limited to one query
  #+begin_example
 ,#+begin_src sql
   set search_path to test, public;
