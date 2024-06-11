@@ -76,18 +76,13 @@
     (database   . :any)))
 
 
-;; the command that terminate a batch of commands
-;; (with \echo -----; for instance)
-;; It's possible to hold the command while output goes on.  But
-;; since the prompt is showing off on every commands there's no
-;; way to figure out when batch of commands has terminated unless
-;; a special command is inserted in its end; However, if a stop
-;; on error is set, then the only remaining case is to also look
-;; for (depending on the client) an ^ERROR: string indicating the
-;; command has terminated The latter isn't implemented.
-;; Not very elegant, and problematic when headers are on.
-;; but I'm out of ideas. looking at ob-pyton-async perhaps ?
-
+;; Batch of SQL commands are terminated by a client command
+;; (\echo -----; for instance)
+;; It's possible to hold the command execution while output goes on.
+;; But we need a way to figure out the batch has terminated
+;; However, if a stop on error is set, the command should still be
+;; executed as it's not an SQL command to the DB but a command to the
+;; client terminal.
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch")
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
@@ -103,7 +98,6 @@
 (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
-
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
