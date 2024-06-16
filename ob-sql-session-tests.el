@@ -78,7 +78,8 @@ Assume the source block is at POSITION if non-nil."
 
 (ert-deftest sqllite-001:test-create ()
   "create table."
-  (sqlite-test "
+  (sqlite-test ".headers off
+
 create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-002:test-insert ()
@@ -131,4 +132,3 @@ sqlite|3.4
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
-

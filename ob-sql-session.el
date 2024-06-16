@@ -42,7 +42,7 @@
 ;; - var
 
 ;; Variables declared in a header substitute identifiers prefixed with
-;; $ by the associated value. This does not declare new variables
+;; $ by the associated value.  This does not declare new variables
 ;; (with a \set command for instance) as they would be stateful and
 ;; span over blocks in sessions.
 
@@ -63,6 +63,7 @@
 (defcustom org-babel-default-header-args:sql-session
   '((:engine . "sqlite"))
   "Default header args."
+	:type '(alist :key-type symbol :value-type string)
   :group 'org-babel
   :safe t)
 
@@ -81,7 +82,8 @@
 ;; However, if a stop on error is set, the command should still be
 ;; executed as it's not an SQL command to the DB but a command to the
 ;; client terminal.
-(defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch")
+(defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
+(defvar ob-sql-session-command-terminated nil)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 (sql-set-product-feature 'postgres :prompt-cont-regexp "")
@@ -123,7 +125,7 @@
          (processed-params (org-babel-process-params params))
          (session (cdr (assoc :session processed-params)))
          (engine  (cdr (assoc :engine processed-params)))
-         (engine  (if (not engine) (user-error "missing :engine") (intern engine)))
+         (engine  (if (not engine) (user-error "Missing :engine") (intern engine)))
          (vars (org-babel--get-vars params))
          (results (split-string (cdr (assq :results processed-params ))))
          (session-p (not (string= session "none")))
@@ -132,7 +134,7 @@
                        engine processed-params session session-p)))
 
     ;; Substitute $vars in body with the associated value.
-    (mapcar
+    (mapc
      (lambda(v) (setq body (string-replace
                        (concat "$"(symbol-name(car v)))(cdr v) body)))
      vars)
@@ -178,7 +180,7 @@
 
 
 (defun org-babel-sql-session-connect (engine params session session-p)
-  "Starts the SQL client if it has not in a buffer
+  "Start the SQL client of ENGINE if it has not in a buffer
 named *SQL: [engine]:[user@server:/database]*
 clear the intermediate buffer from previous output,
 and set the process filter.
@@ -248,8 +250,8 @@ Return the comint process buffer."
 
 Imported from sql.el with a few modification in order
 to prompt for authentication only if there's a missing
-parameter. Depending on the sql client the password
-should also be prompted. "
+parameter.  Depending on the sql client the password
+should also be prompted."
 
   ;; Get the value of engine that we need
   (setq sql-product
@@ -345,16 +347,19 @@ should also be prompted. "
                                (not (re-search-backward sql-prompt-regexp 0 t))))
               (sql-progress-reporter-update rpt)))
           (run-hooks 'sql-login-hook))
-				
+
         (sql-progress-reporter-done rpt)
         (get-buffer sqli-buffer)))))
 
 
 (defun ob-sql-format-query (str)
   "Process then send the command STR to the SQL process.
-Concatenate the commands as one line is one way to 
-stop on error. Otherwise the entire batch will be emitted."
-	(concat 
+Carefully separate client commands from SQL commands
+Concatenate SQL commands as one line is one way to stop on error.
+Otherwise the entire batch will be emitted no matter what.
+Finnally add the termination command."
+
+	(concat
 	 (let ((command-indicator (sql-get-product-feature sql-product :command)))
 		 (mapconcat
 			(lambda(s)
@@ -365,24 +370,14 @@ stop on error. Otherwise the entire batch will be emitted."
 												 (concat "^\s*" command-indicator) s)
 										"\n"))))
 			(split-string str "\n")))
+	 "\n"
 	 (sql-get-product-feature sql-product :batch-terminate)))
 
-(ob-sql-format-query "
-.headers off
-  -- comment 
-  create table.
-  create table test(one varchar(10), two int);")
 
-(ob-sql-format-query "
-.headers off
-
-create table test(one varchar(10), two int);")
-
-
-(defun ob-sql-session-comint-output-filter (proc string)
-	"Process output gets redirected in a temporary buffer.It is called
-several times consecutively as the shell outputs and flush its message
-buffer"
+(defun ob-sql-session-comint-output-filter (_proc string)
+	"Process output STRING of PROC gets redirected to a temporary buffer.
+It is called several times consecutively as the shell outputs and flush
+its message buffer"
 
 	(with-local-quit
 		(message string)
