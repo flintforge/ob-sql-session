@@ -60,7 +60,6 @@
 (require 'org)
 (require 'sql)
 
-
 (defcustom org-babel-default-header-args:sql-session
   '((:engine . "sqlite"))
   "Default header args."
@@ -75,7 +74,6 @@
     ;;(dbpassword . :any)
     (database   . :any)))
 
-
 ;; Batch of SQL commands are terminated by a client command
 ;; (\echo -----; for instance)
 ;; It's possible to hold the command execution while output goes on.
@@ -87,8 +85,10 @@
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 (sql-set-product-feature 'postgres :prompt-cont-regexp "")
+
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'postgres :command "\\")
 
 ;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 
@@ -98,6 +98,7 @@
 (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'sqlite :command "\\.")
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -128,8 +129,7 @@
          (session-p (not (string= session "none")))
 
          (sql--buffer (org-babel-sql-session-connect
-                       engine processed-params session session-p))
-         )
+                       engine processed-params session session-p)))
 
     ;; Substitute $vars in body with the associated value.
     (mapcar
@@ -142,7 +142,7 @@
 
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
-      (ob-sql-send-string body (current-buffer))
+			(process-send-string (current-buffer) (ob-sql-format-query body))
       ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
         (sleep-for 0.03))
@@ -174,8 +174,7 @@
         ;; where does this extra | comes from ?
         (goto-char (point-min)) (delete-char 1))
 
-      (buffer-string)
-      )))
+      (buffer-string))))
 
 
 (defun org-babel-sql-session-connect (engine params session session-p)
@@ -199,8 +198,7 @@ Return the comint process buffer."
                               (if sql-user (concat sql-user "@") "")
                               (if sql-server (concat sql-server ":") "")
                               sql-database))
-         (ob-sql-buffer (format "*SQL: %s*" buffer-name))
-         )
+         (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     ;; predicate is set when sql-interactive-mode is on
     ;; todo: just check the buffer process status
@@ -242,8 +240,7 @@ Return the comint process buffer."
         (set-process-filter sql-term-proc
                             #'ob-sql-session-comint-output-filter)
         ;; return the buffer
-        (get-buffer ob-sql-buffer)
-        ))))
+        (get-buffer ob-sql-buffer)))))
 
 
 (defun ob-sql-connect (&optional engine sql-cnx session-p)
@@ -273,8 +270,7 @@ should also be prompted. "
             (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
             (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
             (start-buffer (current-buffer))
-            sqli-buffer rpt
-            )
+            sqli-buffer rpt)
 
         ;; store the regexp used to clear output (prompt1|indicator|prompt2)
         (sql-set-product-feature
@@ -348,67 +344,65 @@ should also be prompted. "
                         (progn (goto-char (point-max))
                                (not (re-search-backward sql-prompt-regexp 0 t))))
               (sql-progress-reporter-update rpt)))
-
           (run-hooks 'sql-login-hook))
-
+				
         (sql-progress-reporter-done rpt)
-
-        (get-buffer sqli-buffer)
-        ))))
+        (get-buffer sqli-buffer)))))
 
 
+(defun ob-sql-format-query (str)
+  "Process then send the command STR to the SQL process.
+Concatenate the commands as one line is one way to 
+stop on error. Otherwise the entire batch will be emitted."
+	(concat 
+	 (let ((command-indicator (sql-get-product-feature sql-product :command)))
+		 (mapconcat
+			(lambda(s)
+				(when (not
+							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
+					(concat s
+									(when (string-match
+												 (concat "^\s*" command-indicator) s)
+										"\n"))))
+			(split-string str "\n")))
+	 (sql-get-product-feature sql-product :batch-terminate)))
 
-(defun ob-sql-send-string (str buffer)
-  "Process then send the command STR to the SQL process."
-  (let ((s (concat
-            ;; join as a one line command
-            (replace-regexp-in-string
-             "[\s\t]*\n" " "
-             ;; or the process will treat newlines as <enter>
-             ;; no matter what, and then stop on error won't work
-             ;; It works, but risky for input that contains newline
-             ;; and harder to debug
-             ;; the best option would be 1)
-             (replace-regexp-in-string
-              ;; tabs are interperted as command completion
-              "[\t]+" " "
-              (replace-regexp-in-string
-               "\s*--.*\n" "" ;; remove comments
-               (replace-regexp-in-string
-                "^\s*$" "" ;; strip blank lines
-                str))))
-            "\n"
-            (sql-get-product-feature sql-product :batch-terminate))
-           ))
-    (message ">>> %s" s)
-    (process-send-string (get-buffer-process buffer) s)))
+(ob-sql-format-query "
+.headers off
+  -- comment 
+  create table.
+  create table test(one varchar(10), two int);")
+
+(ob-sql-format-query "
+.headers off
+
+create table test(one varchar(10), two int);")
 
 
 (defun ob-sql-session-comint-output-filter (proc string)
-  "Process output gets redirected in a temporary buffer.It is called
+	"Process output gets redirected in a temporary buffer.It is called
 several times consecutively as the shell outputs and flush its message
 buffer"
 
-  (with-local-quit
+	(with-local-quit
+		(message string)
+		;; Inserting the result in the sql process buffer
+		;; adds it to the terminal prompt and as a result
+		;; the ouput gets passed as input onto the next command
+		;; line; See `comint-redirect-setup' to possibly fix that
+		;; (with-current-buffer (process-buffer proc) (insert output))
 
-    (message string)
-    ;; Inserting the result in the sql process buffer
-    ;; adds it to the terminal prompt and as a result
-    ;; the ouput gets passed as input onto the next command
-    ;; line; See `comint-redirect-setup' to possibly fix that
-    ;; (with-current-buffer (process-buffer proc) (insert output))
+		(when (string-match ob-sql-session--batch-end-indicator string)
+			(setq ob-sql-session-command-terminated t))
 
-    (when (string-match ob-sql-session--batch-end-indicator string)
-      (setq ob-sql-session-command-terminated t))
-
-    (with-current-buffer (get-buffer-create "*ob-sql-result*")
-      (insert string))))
+		(with-current-buffer (get-buffer-create "*ob-sql-result*")
+			(insert string))))
 
 (with-eval-after-load "org"
-  (add-to-list 'org-src-lang-modes '("sql-session" . sql))
-  (add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql"))
-  ;;(add-to-list 'org-structure-template-alist '("sql" . "src sql-mode")
-  ) ;; or (customize-variable 'org-structure-template-alist)
+	(add-to-list 'org-src-lang-modes '("sql-session" . sql))
+	(add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql")))
+	;;(add-to-list 'org-structure-template-alist '("sql" . "src sql-session-mode")
+	;; or (customize-variable 'org-structure-template-alist)
 
 
 (provide 'ob-sql-session)

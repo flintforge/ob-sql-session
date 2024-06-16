@@ -71,9 +71,14 @@ Assume the source block is at POSITION if non-nil."
 (defun sqlite-test (code expect)
   (babel-block-test #'setup "sql-session :engine sqlite :session Tests" code expect))
 
+(ert-deftest sqllite-000:test-header ()
+  "create table."
+  (sqlite-test ".headers off" nil))
+
+
 (ert-deftest sqllite-001:test-create ()
   "create table."
-  (sqlite-test ".headers off
+  (sqlite-test "
 create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-002:test-insert ()

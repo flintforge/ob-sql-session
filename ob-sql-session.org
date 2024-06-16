@@ -157,8 +157,7 @@ Skip confirmations
   (defun do-org-confirm-babel-evaluations (lang body)
     (not
      (or
-      (string= lang "elisp")
-      (string= lang "sqlite")
+      (string= lang "elisp")    
       (string= lang "sql-session"))))
   (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
 ,#+end_src
@@ -397,7 +396,6 @@ Stored procedure
 | ERROR:  woops                                             |
 | CONTEXT:  PL/pgSQL function test(boolean) line 4 at RAISE |
 
-
 ** Formatting results
 
 We are not relying on the prompts here,
@@ -546,3 +544,4 @@ or vice-versa
 
 #+call: src->example()
 #+call: example->src()
+
