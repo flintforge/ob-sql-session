@@ -159,7 +159,6 @@
       )
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
-
       (goto-char (point-min))
       (replace-regexp ;; clear the output or prompt and termination
        (sql-get-product-feature engine :ob-sql-session-clear-output) "")
@@ -235,13 +234,10 @@ Return the comint process buffer."
         (sleep-for 0.06)
         (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
 
-        ;; SQL interactive terminal starts.
-        ;; When setting a process filter, the output gets redirected
-
         ;; set the redirection filter
         (set-process-filter sql-term-proc
                             #'ob-sql-session-comint-output-filter)
-        ;; return the buffer
+        ;; return that buffer
         (get-buffer ob-sql-buffer)))))
 
 
@@ -266,9 +262,7 @@ should also be prompted."
     (when (sql-get-product-feature sql-product :sqli-comint-func)
       ;; If no new name specified or new name in buffer name,
       ;; try to pop to an active SQL interactive for the same engine
-      (let ((buf (sql-find-sqli-buffer sql-product sql-connection))
-            ;;    ;; We have a new name or sql-buffer doesn't exist or match
-            ;;    ;; Start by remembering where we start
+      (let ((buf (sql-find-sqli-buffer sql-product sql-connection)) ; unused yet
             (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
             (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
             (start-buffer (current-buffer))
@@ -277,7 +271,7 @@ should also be prompted."
         ;; store the regexp used to clear output (prompt1|indicator|prompt2)
         (sql-set-product-feature
          engine :ob-sql-session-clear-output
-         ( concat "\\(" prompt-regexp "\\)"
+         (concat "\\(" prompt-regexp "\\)"
            "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
            (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
@@ -332,9 +326,8 @@ should also be prompted."
               (setq sql-buffer (buffer-name sqli-buffer))
               (run-hooks 'sql-set-sqli-hook)))
 
-
-          ;; complete login
-          ;; todo: replace with a comint filter
+          ;; login complete
+          ;; todo: replace with another comint filter
           ;; don't look for the prompt and give it a max time
           (let ((proc (get-buffer-process sqli-buffer))
                 (secs sql-login-delay)
