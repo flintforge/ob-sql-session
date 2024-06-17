@@ -360,9 +360,11 @@ Finnally add the termination command."
 							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
 					(concat s
 									(when (string-match
-												 (concat "^\s*" command-indicator) s)
+												 (concat "^\s*" command-indicator)
+												 s)
+										(message "MATCH %s %s" "^\s*" command-indicator s)
 										"\n"))))
-			(split-string str "\n")))
+			(split-string str "\n") " "))
 	 "\n"
 	 (sql-get-product-feature sql-product :batch-terminate)))
 
