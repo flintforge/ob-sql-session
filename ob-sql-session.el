@@ -90,7 +90,7 @@
 
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'postgres :command "\\")
+(sql-set-product-feature 'postgres :command "\\\\")
 
 ;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 
@@ -214,9 +214,8 @@ Return the comint process buffer."
 
       ;; otherwise initiate a connection
       (save-window-excursion
-        (setq ob-sql-buffer
-              (ob-sql-connect engine buffer-name session-p) ; start the client
-              ))
+        (setq ob-sql-buffer              ; start the client
+              (ob-sql-connect engine buffer-name session-p)))
 
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
@@ -358,11 +357,10 @@ Finnally add the termination command."
 			(lambda(s)
 				(when (not
 							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-					(concat s
+					(concat (string-replace "\t" "" s) ; filter tabs
 									(when (string-match
 												 (concat "^\s*" command-indicator)
 												 s)
-										(message "MATCH %s %s" "^\s*" command-indicator s)
 										"\n"))))
 			(split-string str "\n") " "))
 	 "\n"
@@ -374,8 +372,6 @@ Finnally add the termination command."
 It is called several times consecutively as the shell outputs and flush
 its message buffer"
 
-	(with-local-quit
-		(message string)
 		;; Inserting the result in the sql process buffer
 		;; adds it to the terminal prompt and as a result
 		;; the ouput gets passed as input onto the next command
@@ -386,7 +382,7 @@ its message buffer"
 			(setq ob-sql-session-command-terminated t))
 
 		(with-current-buffer (get-buffer-create "*ob-sql-result*")
-			(insert string))))
+			(insert string)))
 
 (with-eval-after-load "org"
 	(add-to-list 'org-src-lang-modes '("sql-session" . sql))
