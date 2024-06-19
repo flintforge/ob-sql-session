@@ -88,13 +88,15 @@ create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-003:test-select ()
   "select from table."
-  (sqlite-test "select * from test;" "hello|world"))
+  (sqlite-test "select * from test;"
+							 "hello|world"))
 
 (ert-deftest sqllite-004:test-tabs ()
   "insert with tabs"
   (sqlite-test "
       --create table test(x,y);
-      select * from test;" "hello|world"))
+      select * from test;"
+							 "hello|world"))
 
 ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
@@ -107,19 +109,23 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-(ert-deftest sqllite-005:test-header-on ()
-  (sqlite-test "
-.headers on
---create table test(x,y);
-delete from test;
-insert into test values ('sqlite','3.40');
-insert into test values (1,2);
-select * from test;"
+(ert-deftest sqllite-005:test-header-on+tabs ()
+  (sqlite-test
+	 ".headers on
+		--create table test(x,y);
+		delete from test;
+		insert into test values ('sqlite','3.40');
+		insert into test values (1,2);
+		select * from test;"
+
 "one|two
 sqlite|3.4
 1|2"))
 
-(ert-deftest sqllite-006:test-header-on ()
+;; additionally, an error after a command can clutter the next shell
+;;
+
+(ert-deftest sqllite-006:drop ()
   (sqlite-test "Drop table test;" nil))
 
 (ert-deftest sqllite-007:test-close-session()
@@ -132,3 +138,4 @@ sqlite|3.4
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
+;; (progn (ert-delete-all-tests)(eval-buffer)(ert :new))
