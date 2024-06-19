@@ -91,14 +91,16 @@ create table test(one varchar(10), two int);" nil))
   (sqlite-test "select * from test;"
 							 "hello|world"))
 
-(ert-deftest sqllite-004:test-tabs ()
+(ert-deftest sqllite-004:test-filter-tabs ()
   "insert with tabs"
   (sqlite-test "
       --create table test(x,y);
-      select * from test;"
-							 "hello|world"))
+				select * from test;
 
-;; gh is on SQLite version 3.37.2 2022-01-06,
+"
+"hello|world"))
+
+    ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
 ;; (ert-deftest sqllite-005:test-stop-on-error ()
 ;;   "stop on error.
@@ -109,7 +111,7 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-(ert-deftest sqllite-005:test-header-on+tabs ()
+(ert-deftest sqllite-005:test-header-on ()
   (sqlite-test
 	 ".headers on
 		--create table test(x,y);

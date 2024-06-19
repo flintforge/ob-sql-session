@@ -217,6 +217,7 @@ Return the comint process buffer."
         (setq ob-sql-buffer              ; start the client
               (ob-sql-connect engine buffer-name session-p)))
 
+
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" engine)))
@@ -357,7 +358,7 @@ Finnally add the termination command."
 			(lambda(s)
 				(when (not
 							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-					(concat (string-replace "\t" "" s) ; filter tabs
+					(concat (replace-regexp-in-string "\t" "" s) ; filter tabs
 									(when (string-match
 												 (concat "^\s*" command-indicator)
 												 s)
