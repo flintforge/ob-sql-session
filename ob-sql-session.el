@@ -179,7 +179,7 @@
       (buffer-string))))
 
 
-(defun ob-sql-session-check-buffer-live-p (buffer)
+(defun ob-sql-session-buffer-live-p (buffer)
   "Return non-nil if the process associated with buffer is live.
 
 This redefines `sql-buffer-live-p' of sql.el, considering the terminal
