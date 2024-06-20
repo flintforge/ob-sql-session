@@ -53,7 +53,7 @@ Assume the source block is at POSITION if non-nil."
     (funcall body)))
 
 
-(defun babel-block-test (setup header code expect)
+(defun babel-block-test (setup header code expect &optional expected-result)
   "Execute SQL in a `sql-session' Babel block comparing the result against WANT."
   (setup
    (lambda ()
@@ -68,8 +68,10 @@ Assume the source block is at POSITION if non-nil."
                              (should (string= expect (results-block-contents)))
                              )))))
 
-(defun sqlite-test (code expect)
-  (babel-block-test #'setup "sql-session :engine sqlite :session Tests" code expect))
+(defun sqlite-test (code expect &optional expected-result)
+  (babel-block-test #'setup
+										"sql-session :engine sqlite :session Tests"
+										code expect))
 
 (ert-deftest sqllite-000:test-header ()
   "create table."
@@ -111,10 +113,34 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-(ert-deftest sqllite-005:test-header-on ()
+
+
+(ert-deftest sqllite-005a:test-multiple-commands ()
+	"Copy pasting this in sqlite3 will give the same result.
+Looks like the terminal
+"
+	;;:expected-result :failed
+  (sqlite-test
+	 "
+    .headers on
+-- ?
+    .bail on
+
+select 1;
+"
+	 "Parse error: near \".\": syntax error\n  .headers on       .bail on   select 1; \n  ^--- error here"
+))
+
+
+(ert-deftest sqllite-005a:test-commands ()
   (sqlite-test
 	 ".headers on
-		--create table test(x,y);
+" nil))
+
+(ert-deftest sqllite-005b:test-header-on ()
+  (sqlite-test
+	 ".headers on
+--create table test(x,y);
 		delete from test;
 		insert into test values ('sqlite','3.40');
 		insert into test values (1,2);
@@ -132,7 +158,7 @@ sqlite|3.4
 
 (ert-deftest sqllite-007:test-close-session()
   (with-current-buffer "*SQL: [Tests] sqlite:///nil*"
-    (comint-quit-subjob)
+    (quit-process nil t)
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
 

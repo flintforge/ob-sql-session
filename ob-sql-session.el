@@ -30,7 +30,8 @@
 ;; the comint sql interpreter using `accept-process-output' by a
 ;; comint output filter through `set-process-filter'.
 ;; The filter is set during the commands execution and removed on exit.
-;; The interactive command interpreter remains usable.
+;; The interactive command interpreter remains usable and
+;; `sql-interactive-mode'  can be activated inside.
 
 ;; Header args available:
 ;; - engine
@@ -90,7 +91,7 @@
 
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'postgres :command "\\\\")
+(sql-set-product-feature 'postgres :terminal-command "\\\\")
 
 ;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 
@@ -100,7 +101,7 @@
 (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'sqlite :command "\\.")
+(sql-set-product-feature 'sqlite :terminal-command "\\.")
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -125,7 +126,7 @@
          (processed-params (org-babel-process-params params))
          (session (cdr (assoc :session processed-params)))
          (engine  (cdr (assoc :engine processed-params)))
-         (engine  (if (not engine) (user-error "Missing :engine") (intern engine)))
+         (engine  (intern (or engine (user-error "Missing :engine"))))
          (vars (org-babel--get-vars params))
          (results (split-string (cdr (assq :results processed-params ))))
          (session-p (not (string= session "none")))
@@ -144,6 +145,7 @@
 
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
+			;;(message "%s" (ob-sql-format-query body)) ; debug reformatted commands
 			(process-send-string (current-buffer) (ob-sql-format-query body))
       ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
@@ -162,7 +164,6 @@
       (goto-char (point-min))
       (replace-regexp ;; clear the output or prompt and termination
        (sql-get-product-feature engine :ob-sql-session-clear-output) "")
-      ;;(message "replace %s" (sql-get-product-feature engine :ob-sql-session-clear-output))
 
       ;; some client can also directly format to tables
       (when (member "table" results)
@@ -178,14 +179,28 @@
       (buffer-string))))
 
 
+(defun ob-sql-session-check-buffer-live-p (buffer)
+  "Return non-nil if the process associated with buffer is live.
+
+This redefines `sql-buffer-live-p' of sql.el, considering the terminal
+is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
+object or a buffer name.  The buffer must be a live buffer, have a
+running process attached to it, and, if PRODUCT or CONNECTION are
+specified, it's `sql-product' or `sql-connection' must match."
+
+    (let ((buffer (get-buffer buffer)))
+			(and buffer
+					 (buffer-live-p buffer)
+					 (let ((proc (get-buffer-process buffer)))
+						 (and proc (memq (process-status proc) '(open run )))))))
+
+
 (defun org-babel-sql-session-connect (engine params session session-p)
   "Start the SQL client of ENGINE if it has not in a buffer
 named *SQL: [engine]:[user@server:/database]*
 clear the intermediate buffer from previous output,
 and set the process filter.
 Return the comint process buffer."
-  (unless engine
-    (user-error (format "missing :engine parameter")))
 
   (let* ((sql-database  (cdr (assoc :database params)))
          (sql-user      (cdr (assoc :dbuser params)))
@@ -201,10 +216,17 @@ Return the comint process buffer."
                               sql-database))
          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
+
+
     ;; predicate is set when sql-interactive-mode is on
     ;; todo: just check the buffer process status
     ;; so we don't have to turn sql-interactive on
-    (if (sql-buffer-live-p ob-sql-buffer)
+
+		;; (if (sql-buffer-live-p ob-sql-buffer)
+		;; I get a nil on sql-for-each-login on the first call to sql-interactive,
+		;; so put sql-buffer-live-p aside
+		;; at
+    (if (ob-sql-session-buffer-live-p ob-sql-buffer)
         (progn
           ;; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
@@ -216,7 +238,6 @@ Return the comint process buffer."
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
               (ob-sql-connect engine buffer-name session-p)))
-
 
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
@@ -256,16 +277,12 @@ should also be prompted."
           engine)
          (t sql-product)))              ; Default to sql-engine
 
-  (if (not engine)
-      (user-error "No default SQL engine defined: set `sql-product'")
-
     (when (sql-get-product-feature sql-product :sqli-comint-func)
       ;; If no new name specified or new name in buffer name,
       ;; try to pop to an active SQL interactive for the same engine
       (let ((buf (sql-find-sqli-buffer sql-product sql-connection)) ; unused yet
             (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
             (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
-            (start-buffer (current-buffer))
             sqli-buffer rpt)
 
         ;; store the regexp used to clear output (prompt1|indicator|prompt2)
@@ -304,6 +321,7 @@ should also be prompted."
             (setq sql-password (funcall sql-password)))
 
           ;; Call the COMINT service
+
           (setq
            sqli-buffer
            (funcall (sql-get-product-feature engine :sqli-comint-func)
@@ -314,21 +332,8 @@ should also be prompted."
           ;; connexion is closed, buffer killed when there's no session
           ;; engine/user/db/session points to the same buffer otherwise
 
-          ;; Set SQLi mode.
-          (when sql-database ;; sql-for-each-login needs a db param or fails
-            (let ((sql-interactive-product engine)) (sql-interactive-mode)))
-
           (setq-local sql-buffer (buffer-name sqli-buffer))
 
-          ;; Set `sql-buffer' in the start buffer
-          (with-current-buffer start-buffer
-            (when (derived-mode-p 'sql-mode)
-              (setq sql-buffer (buffer-name sqli-buffer))
-              (run-hooks 'sql-set-sqli-hook)))
-
-          ;; login complete
-          ;; todo: replace with another comint filter
-          ;; don't look for the prompt and give it a max time
           (let ((proc (get-buffer-process sqli-buffer))
                 (secs sql-login-delay)
                 (step 0.2))
@@ -342,7 +347,8 @@ should also be prompted."
           (run-hooks 'sql-login-hook))
 
         (sql-progress-reporter-done rpt)
-        (get-buffer sqli-buffer)))))
+
+        (get-buffer sqli-buffer))))
 
 
 (defun ob-sql-format-query (str)
@@ -353,19 +359,18 @@ Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
 
 	(concat
-	 (let ((command-indicator (sql-get-product-feature sql-product :command)))
+	 (let ((commands (split-string str "\n"))
+				 (terminal-command
+					(concat "^\s*" (sql-get-product-feature sql-product :terminal-command))))
+
 		 (mapconcat
 			(lambda(s)
 				(when (not
 							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-					(concat (replace-regexp-in-string "\t" "" s) ; filter tabs
-									(when (string-match
-												 (concat "^\s*" command-indicator)
-												 s)
-										"\n"))))
-			(split-string str "\n") " "))
-	 "\n"
-	 (sql-get-product-feature sql-product :batch-terminate)))
+					(concat (replace-regexp-in-string "[\t]" "" s) ; filter tabs
+									(when (string-match terminal-command s) "\n"))))
+			commands " " ))
+	 "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
 
 (defun ob-sql-session-comint-output-filter (_proc string)
