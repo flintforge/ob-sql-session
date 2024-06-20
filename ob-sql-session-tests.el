@@ -119,7 +119,7 @@ create table test(one varchar(10), two int);" nil))
 	"Copy pasting this in sqlite3 will give the same result.
 Looks like the terminal
 "
-	;;:expected-result :failed
+	:expected-result :failed
   (sqlite-test
 	 "
     .headers on
@@ -128,8 +128,8 @@ Looks like the terminal
 
 select 1;
 "
-	 "Parse error: near \".\": syntax error\n  .headers on       .bail on   select 1; \n  ^--- error here"
-))
+	 "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
+)) ;; variations expected between sqlite versions
 
 
 (ert-deftest sqllite-005a:test-commands ()
