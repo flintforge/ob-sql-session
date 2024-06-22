@@ -166,4 +166,5 @@ sqlite|3.4
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
+;; (with-current-buffer "ob-sql-session.el" (save-buffer))
 ;; (progn (ert-delete-all-tests)(eval-buffer)(ert :new))

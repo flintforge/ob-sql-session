@@ -8,7 +8,7 @@ https://github.com/flintforge/ob-sql-session
 ** Orb Babel functions for SQL, with session
 *** Overview
 :PROPERTIES:
-:header-args: sql-session :engine postgres :database test :session PG :results table
+qq:header-args: sql-session :engine postgres :database test :session PG :results table
 :END:
 
 #+begin_example
