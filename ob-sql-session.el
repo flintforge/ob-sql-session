@@ -134,19 +134,20 @@
          (sql--buffer (org-babel-sql-session-connect
                        engine processed-params session session-p)))
 
-    ;; Substitute $vars in body with the associated value.
-    (mapc
-     (lambda(v) (setq body (string-replace
-                       (concat "$"(symbol-name(car v)))(cdr v) body)))
-     vars)
+			(setq sql-product engine)
+			;; Substitute $vars in body with the associated value.
+			(mapc
+			 (lambda(v) (setq body (string-replace
+												 (concat "$"(symbol-name(car v)))(cdr v) body)))
+			 vars)
 
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (erase-buffer))
 
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
-			;;(message "%s" (ob-sql-format-query body)) ; debug reformatted commands
-			(process-send-string (current-buffer) (ob-sql-format-query body))
+			(message "%s" (ob-sql-format-query body)) ; debug reformatted commands
+			(process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
         (sleep-for 0.03))
@@ -215,7 +216,6 @@ Return the comint process buffer."
                               (if sql-server (concat sql-server ":") "")
                               sql-database))
          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
-
 
 
     ;; predicate is set when sql-interactive-mode is on
@@ -351,18 +351,19 @@ should also be prompted."
         (get-buffer sqli-buffer))))
 
 
-(defun ob-sql-format-query (str)
+(defun ob-sql-format-query (str engine)
   "Process then send the command STR to the SQL process.
 Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
 
+	(setq sql-product engine)
 	(concat
 	 (let ((commands (split-string str "\n"))
 				 (terminal-command
-					(concat "^\s*" (sql-get-product-feature sql-product :terminal-command))))
-
+					(concat "^\s*"
+									(sql-get-product-feature sql-product :terminal-command))))
 		 (mapconcat
 			(lambda(s)
 				(when (not

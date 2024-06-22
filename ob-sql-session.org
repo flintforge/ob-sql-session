@@ -9,13 +9,11 @@ https://github.com/flintforge/ob-sql-session
 *** Overview
 :PROPERTIES:
 :header-args: sql-session :engine postgres :database test :session PG :results table
-:header-args: sql         :engine postgres :database test :tangle yes
 :END:
 
 #+begin_example
 :PROPERTIES:
 :header-args: sql-session :engine postgres :dbhost localhost :database test :dbuser (getenv "pguser")
-:header-args: sql         :engine postgres :database test :tangle yes
 :END:
 #+end_example
 
@@ -157,7 +155,7 @@ Skip confirmations
   (defun do-org-confirm-babel-evaluations (lang body)
     (not
      (or
-      (string= lang "elisp")    
+      (string= lang "elisp")
       (string= lang "sql-session"))))
   (setq org-confirm-babel-evaluate 'do-org-confirm-babel-evaluations)
 ,#+end_src
@@ -544,4 +542,3 @@ or vice-versa
 
 #+call: src->example()
 #+call: example->src()
-
