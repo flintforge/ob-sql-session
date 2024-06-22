@@ -344,10 +344,10 @@ should also be prompted."
                         (progn (goto-char (point-max))
                                (not (re-search-backward sql-prompt-regexp 0 t))))
               (sql-progress-reporter-update rpt)))
+
           (run-hooks 'sql-login-hook))
 
         (sql-progress-reporter-done rpt)
-
         (get-buffer sqli-buffer))))
 
 
