@@ -411,57 +411,6 @@ Stored procedure
 | ERROR:  woops                                             |
 | CONTEXT:  PL/pgSQL function test(boolean) line 4 at RAISE |
 
-** Formatting results
-
-We are not relying on the prompt, but a termination indicator,
-The prompt is only required to detect when the initial connexion is ready, e.g. the prompt shows up.
-The terminal input remains usable.
-
-#+begin_example
-,#+begin_src elisp
-
-  (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-  (sql-set-product-feature 'postgres :prompt-cont-regexp "")
-  (setq sql-postgres-options (list
-                              "--set=ON_ERROR_STOP=1"
-                              (concat "--set=PROMPT1="
-                                      (sql-get-product-feature 'postgres :prompt-regexp ))
-                              (concat "--set=PROMPT2="
-                                      (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-                              "-q"
-                              "-P" "pager=off"
-                              "-P" "footer=off" ; aligned and border provides tables but adds an extra line
-                              "--tuples-only"
-                              ))
-
-,#+end_src
-#+end_example
-
-
-#+begin_example
-,#+begin_src sql-session :engine postgres :session PG :results table
-  --drop table A;
-  create table T(x int, y int, z int);
-  insert into T values (1,2,3);
-  insert into T values (4,5,6);
-
-,#+end_src
-#+end_example
-
-| CREATE TABLE |
-| INSERT 0 1   |
-| INSERT 0 1   |
-
-#+begin_example
-,#+begin_src sql-session :engine postgres :session PG :results table
-  select * from T;
-,#+end_src
-#+end_example
-
-| x | y | z |
-| 1 | 2 | 3 |
-| 4 | 5 | 6 |
-
 ** Variables
 #+begin_example
 ,#+begin_src sql-session :engine sqlite :var x="3.0"
