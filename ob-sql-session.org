@@ -112,8 +112,7 @@ Which brings several remarks:
   special command in the end.
 
 We have two situations related to the client:
-1) It returns a message from a command. A regular
-   situation we are looing for.
+1) It returns a message from a command.
 2) It is silent on the output, and we don't want to
    echo every input, example: a =drop= on sqlite, a
    =\set= or quiet mode on psql.
