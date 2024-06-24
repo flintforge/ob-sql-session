@@ -8,7 +8,7 @@ https://github.com/flintforge/ob-sql-session
 ** Orb Babel functions for SQL, with session
 *** Overview
 :PROPERTIES:
-qq:header-args: sql-session :engine postgres :database test :session PG :results table
+:header-args: sql-session :engine postgres :database test :session PG :results table
 :END:
 
 #+begin_example
@@ -469,10 +469,11 @@ Variables will also be substitued in litteral strings (eg '$var').
 
 - [X] pass
 
-** TODO >
-- [ ] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]?
+** [1/3] TODO >
+- [X] Provide password [[file:/usr/share/emacs/28.2/lisp/env.el.gz::defmacro with-environment-variables][with-environment-variables]]
+      + additionnal enviro if needed
 - [ ] port number please
-- [ ] merge into ob-sql?
+- [ ] merge into ob-sql
 
 ** Tests
 
