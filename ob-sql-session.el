@@ -88,7 +88,7 @@
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 (sql-set-product-feature 'postgres :prompt-cont-regexp "")
-(sql-set-product-feature 'postgres :environment (list "PGPASSWORD" sql-password))
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
@@ -324,8 +324,11 @@ should also be prompted."
 
         (setq
          sqli-buffer
-				 ;; TODO : parameter of feature
-				 (with-environment-variables (("PGPASSWORD" sql-password))
+				 (let ((process-environment (copy-sequence process-environment))
+							 (variables (sql-get-product-feature engine :environment)))
+					 (mapc (lambda (elem) 	 ; environment variables, evaluated here
+										 (setenv (car elem) (eval(cadr elem))))
+									 variables)
 					 (funcall (sql-get-product-feature engine :sqli-comint-func)
 										engine
 										(sql-get-product-feature engine :sqli-options)
