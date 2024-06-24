@@ -336,6 +336,8 @@ should also be prompted."
         ;; no need for a numbered buffer:
         ;; connexion is closed, buffer killed when there's no session
         ;; engine/user/db/session points to the same buffer otherwise
+				;; [2024-06-24 lun.] actually we will need this,
+				;; since the buffer naming changed
 
         (setq-local sql-buffer (buffer-name sqli-buffer))
 

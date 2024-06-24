@@ -316,6 +316,24 @@ On a session
 ,#+end_src
 #+end_example
 
+
+*** Once a session is opened
+#+begin_example
+,#+begin_src sql-session :session PG :engine postgres :dbuser user :dbpassword password :dbhost host :databse db
+  select current_user
+,#+end_src
+#+end_example
+
+The connexion parameters may be discarded when recalling an opened session
+#+begin_example
+,#+begin_src sql-session :session PG
+  select current_user
+,#+end_src
+#+end_example
+
+They'll be of course needed if the commands and queries are to be run
+independently and need to be able to initiate the connexion.
+
 ** Test it on postgres
 :PROPERTIES:
 :header-args: sql-session :engine postgres :database test :results table
