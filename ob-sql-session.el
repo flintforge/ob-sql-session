@@ -46,11 +46,11 @@
 ;; $ by the associated value.  This does not declare new variables
 ;; (with a \set command for instance) as they would be stateful and
 ;; span over blocks in sessions.
-
-;; Not implemented
-;; - dbconnection
-;; - dbpassword : will be prompted on the first connection
 ;;
+
+;; In session mode, the connexion parameter are required only when
+;; login, and no longer required for further requests.
+
 ;; Commands blocks are passed to the terminal as one unique line
 
 ;;; Code:
@@ -73,30 +73,26 @@
     (dbhost     . :any)
     (dbport     . :any)
     (dbuser     . :any)
-    ;;(dbpassword . :any)
+    (dbpassword . :any)
     (database   . :any)))
 
 ;; Batch of SQL commands are terminated by a client command
 ;; (\echo -----; for instance)
-;; It's possible to hold the command execution while output goes on.
-;; But we need a way to figure out the batch has terminated
-;; However, if a stop on error is set, the command should still be
-;; executed as it's not an SQL command to the DB but a command to the
-;; client terminal.
+;; While it's possible to hold the command execution while output goes
+;; on, we would still need a way to figure out the batch has terminated.
+;; Moreover, if a stop on error is set, the command should still be
+;; executed as it's not an SQL command to the DB but a string sent to
+;; the client terminal.
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 (sql-set-product-feature 'postgres :prompt-cont-regexp "")
-
+(sql-set-product-feature 'postgres :environment (list "PGPASSWORD" sql-password))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 
-;;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-
-;; continuation prompt can appear on the same line. why?
-;; remove ^ . from regex
 (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 (sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
@@ -109,18 +105,14 @@
                                     (sql-get-product-feature 'postgres :prompt-regexp ))
                             (concat "--set=PROMPT2="
                                     (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-                            ;;"-q" ;; quiet mode would also suppress CREATE FUNCTION
                             "-P" "pager=off"
                             "-P" "footer=off"
                             "-A"
-                            ;;"--tuples-only"
-                            ;; an option to switch it internatly (\pset tuples_only)
-                            ;; would be intersting, but
                             ))
 
 
 (defun org-babel-execute:sql-session (body params)
-  "Execute SQL statements in BODY using PARAMS."
+  "Execute SQL statements in BODY with PARAMS."
 
   (let* (
          (processed-params (org-babel-process-params params))
@@ -132,9 +124,10 @@
          (session-p (not (string= session "none")))
 
          (sql--buffer (org-babel-sql-session-connect
-                       engine processed-params session session-p)))
+                       engine processed-params session)))
 
 		(setq sql-product engine)
+
 		;; Substitute $vars in body with the associated value.
 		(mapc
 		 (lambda(v) (setq body (string-replace
@@ -170,7 +163,7 @@
       (when (member "table" results)
         ;;(org-table-convert-region (point-min)(point-max) "|")
       ;;; or
-        (goto-char (point-max)) (backward-delete-char 1) ;; last newline
+        (goto-char (point-max)) (delete-char -1) ;; last newline
         (beginning-of-line)
         (let ((end (point)))
           (string-insert-rectangle (point-min) end "|"))
@@ -196,27 +189,35 @@ specified, it's `sql-product' or `sql-connection' must match."
 					 (and proc (memq (process-status proc) '(open run )))))))
 
 
-(defun org-babel-sql-session-connect (engine params session session-p)
-  "Start the SQL client of ENGINE if it has not in a buffer
-named *SQL: [engine]:[user@server:/database]*
-clear the intermediate buffer from previous output,
+ (defun org-babel-sql-session-connect (engine params session)
+   "Start the SQL client of ENGINE if it has not in a buffer.
+Clear the intermediate buffer from previous output,
 and set the process filter.
-Return the comint process buffer."
+Return the comint process buffer.
+
+The buffer naming was shortened from '[session]
+engine://user@host/database', that clearly identifies the connexion from
+Emacs, to *SQL [session]* in order to be retrieved a session with its
+name alone, the other parameters no longer needed.
+
+When there is not, the execution will be given to ob-sql.el"
+
 
   (let* ((sql-database  (cdr (assoc :database params)))
          (sql-user      (cdr (assoc :dbuser params)))
          (sql-password  (cdr (assoc :dbpassword params)))
          (sql-server    (cdr (assoc :dbhost params)))
          ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
-         (buffer-name (format "%s%s://%s%s/%s"
-                              (if (string= session "none") ""
-                                (format "[%s] " session))
-                              engine
-                              (if sql-user (concat sql-user "@") "")
-                              (if sql-server (concat sql-server ":") "")
-                              sql-database))
+				 (buffer-name (format "%s"(if (string= session "none") ""
+                                (format "[%s]" session))))
+         ;; (buffer-name (format "%s%s://%s%s/%s"
+         ;;                      (if (string= session "none") ""
+         ;;                        (format "[%s] " session))
+         ;;                      engine
+         ;;                      (if sql-user (concat sql-user "@") "")
+         ;;                      (if sql-server (concat sql-server ":") "")
+         ;;                      sql-database))
          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
-
 
 		;; I get a nil on sql-for-each-login on the first call
 		;; to sql-interactive  at
@@ -232,9 +233,9 @@ Return the comint process buffer."
           ob-sql-buffer)
 
       ;; otherwise initiate a connection
-      (save-window-excursion
-        (setq ob-sql-buffer              ; start the client
-              (ob-sql-connect engine buffer-name session-p)))
+			(save-window-excursion
+				(setq ob-sql-buffer              ; start the client
+							(ob-sql-connect engine buffer-name)))
 
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
@@ -259,7 +260,7 @@ Return the comint process buffer."
         (get-buffer ob-sql-buffer)))))
 
 
-(defun ob-sql-connect (&optional engine sql-cnx session-p)
+(defun ob-sql-connect (&optional engine sql-cnx password)
   "Run ENGINE interpreter as an inferior process.
 
 Imported from sql.el with a few modification in order
@@ -309,7 +310,7 @@ should also be prompted."
             (default-directory (or sql-default-directory default-directory)))
 
         ;; The password wallet returns a function
-				;; which supplies the password.
+				;; which supplies the password. (untested)
         (when (functionp sql-password)
           (setq sql-password (funcall sql-password)))
 
@@ -323,10 +324,12 @@ should also be prompted."
 
         (setq
          sqli-buffer
-         (funcall (sql-get-product-feature engine :sqli-comint-func)
-                  engine
-                  (sql-get-product-feature engine :sqli-options)
-                  (format "SQL: %s" sql-cnx)))
+				 ;; TODO : parameter of feature
+				 (with-environment-variables (("PGPASSWORD" sql-password))
+					 (funcall (sql-get-product-feature engine :sqli-comint-func)
+										engine
+										(sql-get-product-feature engine :sqli-options)
+										(format "SQL: %s" sql-cnx))))
         ;; no need for a numbered buffer:
         ;; connexion is closed, buffer killed when there's no session
         ;; engine/user/db/session points to the same buffer otherwise
@@ -374,9 +377,10 @@ Finnally add the termination command."
 			(lambda(s)
 				(when (not
 							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-					(concat (replace-regexp-in-string "[\t]" "" s) ; filter tabs
+					(concat (replace-regexp-in-string "[\t]" "" ; filter tabs
+														 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
 									(when (string-match terminal-command s) "\n"))))
-			commands " " ))
+			commands " \n" ))
 	 "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
 

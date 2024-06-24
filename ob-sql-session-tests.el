@@ -157,7 +157,7 @@ sqlite|3.4
   (sqlite-test "Drop table test;" nil))
 
 (ert-deftest sqllite-007:test-close-session()
-  (with-current-buffer "*SQL: [Tests] sqlite:///nil*"
+  (with-current-buffer "*SQL: [Tests]*" ; sqlite:///nil*"
     (quit-process nil t)
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
