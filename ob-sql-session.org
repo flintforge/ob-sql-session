@@ -413,9 +413,8 @@ Stored procedure
 
 ** Formatting results
 
-We are not relying on the prompts here,
-but a termination indicator,
-so they may even be set to empty string.
+We are not relying on the prompt, but a termination indicator,
+The prompt is only required to detect when the initial connexion is ready, e.g. the prompt shows up.
 The terminal input remains usable.
 
 #+begin_example
