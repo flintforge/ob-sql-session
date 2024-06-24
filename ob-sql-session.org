@@ -459,13 +459,11 @@ Variables will also be substitued in litteral strings (eg '$var').
 
 ** Test against large output
 
-+begin_example
 #+begin_src sql :engine postgres :database test :var x=33
   drop sequence serial2;
   Create sequence serial2 start $x;
   select nextval('serial2'),array(select generate_series(0, 200)) from generate_series(0, 250);
 #+end_src
-#+end_example
 
 - [X] pass
 
@@ -474,46 +472,6 @@ Variables will also be substitued in litteral strings (eg '$var').
       + additionnal enviro if needed
 - [ ] port number please
 - [ ] merge into ob-sql
-
-** Tests
-
-ERT tests set could be build from source blocks.
-Interactive tests first, then automated, Greatly
-simplifying the sequence for different databases and
-parameters.
-
-#+begin_src elisp :results silent
-  (save-window-excursion
-    (find-file "ob-sql-session-tests.el")
-    (eval-buffer)
-    (ert :new))
-#+end_src
-
-#+begin_src elisp :results silent
-  (save-window-excursion
-    (with-current-buffer "ob-sql-session-tests.el"
-      (ert t)))
-#+end_src
-
-** Tests sqlite
-:PROPERTIES:
-:header-args: sql-session :engine sqlite :session Tests
-:END:
-
-#+begin_example
-,#+begin_src sql-session
-  .headers off
-  create table test(one varchar(10), two int);
-,#+end_src
-#+end_example
-
-
-#+begin_example
-,#+begin_src elisp
-(let ((kill-buffer-query-functions nil))
-  (kill-buffer "*SQL: [Tests] sqlite:///nil*"))
-,#+end_src
-#+end_example
 
 ** Publishing an org file on github
 Turn code blocks to example
