@@ -8,7 +8,7 @@ https://github.com/flintforge/ob-sql-session
 ** Orb Babel functions for SQL, with session
 *** Overview
 :PROPERTIES:
-:header-args: sql-session :engine postgres :database test :session PG :results table
+:header-args: sql-session :engine postgres :dbhost localhost :database test :session PG :results table
 :END:
 
 #+begin_example
@@ -166,20 +166,22 @@ database in order to run sqlite in memory (=ob-sqlite=
 has +no+ session support +either and requires a database+
 (/commit 68aa43885/ merged in org 9.7: ob-sqlite: Use a transient in-memory database by default).
 
-Tests (intented to be run on org-mode) :
+Test it:
 #+begin_example
 ,#+begin_src sql-session :engine sqlite :results table :database test.db
-  --.headers on
-  --drop table test;
-  create table test(x,y);
+  .headers on
+  drop table test;
+  create table test(a,b);
   insert into test values ("sqlite",sqlite_version());
   insert into test values (date(),time());
   select * from test;
 ,#+end_src
 #+end_example
 
-|     sqlite |   3.40.1 |
-| 2024-06-05 | 14:43:07 |
+#+RESULTS:
+| a          |        b |
+| sqlite     |   3.40.1 |
+| 2024-06-24 | 11:57:56 |
 
 Displaying header.
 #+begin_example

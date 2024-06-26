@@ -139,7 +139,7 @@
 
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
-			;;(message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
+			(message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
 			(process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
