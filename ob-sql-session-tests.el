@@ -48,7 +48,8 @@ Assume the source block is at POSITION if non-nil."
          (lambda (&rest _) t))
         (org-confirm-babel-evaluate
          (lambda (lang body)
-           (not (string= lang "sql-session")))))
+           (not (string= lang "sql-session"))))
+        )
     (funcall body)))
 
 

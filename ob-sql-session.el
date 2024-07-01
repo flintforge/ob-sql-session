@@ -77,7 +77,7 @@
     (database   . :any)))
 
 ;; Batch of SQL commands are terminated by a client command
-;; (\echo -----; for instance)
+;; (\echo ---# for instance)
 ;; While it's possible to hold the command execution while output goes
 ;; on, we would still need a way to figure out the batch has terminated.
 ;; Moreover, if a stop on error is set, the command should still be
@@ -109,7 +109,7 @@
                             "-P" "footer=off"
                             "-A"
                             ))
-
+:
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY with PARAMS."
@@ -128,7 +128,7 @@
 
 		(setq sql-product engine)
 
-		;; Substitute $vars in body with the associated value.
+		;; Substitute $vars in body with the associated value. (See also s-format).
 		(mapc
 		 (lambda(v) (setq body (string-replace
 											 (concat "$"(symbol-name(car v)))(cdr v) body)))
@@ -151,8 +151,8 @@
         (comint-quit-subjob)
         ;; despite this quit, the process may not be finished
         (let ((kill-buffer-query-functions nil))
-          (kill-this-buffer)))
-      )
+          (kill-this-buffer))))
+
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (goto-char (point-min))
@@ -197,8 +197,9 @@ Return the comint process buffer.
 
 The buffer naming was shortened from '[session]
 engine://user@host/database', that clearly identifies the connexion from
-Emacs, to *SQL [session]* in order to be retrieved a session with its
-name alone, the other parameters no longer needed.
+Emacs, to *SQL [session]* in order to retrieved a session with its
+name alone, the other parameters in the header args beeing no longer needed
+once the session is established.
 
 When there is not, the execution will be given to ob-sql.el"
 
@@ -260,7 +261,7 @@ When there is not, the execution will be given to ob-sql.el"
         (get-buffer ob-sql-buffer)))))
 
 
-(defun ob-sql-connect (&optional engine sql-cnx password)
+(defun ob-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process.
 
 Imported from sql.el with a few modification in order
@@ -366,7 +367,7 @@ should also be prompted."
 
 (defun ob-sql-format-query (str engine)
   "Process then send the command STR to the SQL process.
-Provide ENGINE to retreieve product features.
+Provide ENGINE to retrieve product features.
 Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
