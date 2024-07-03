@@ -86,14 +86,14 @@
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 
-;(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 ;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
 (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" (shell-quote-argument sql-password))))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 
-;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 ;(sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
