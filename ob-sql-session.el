@@ -86,15 +86,15 @@
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-(sql-set-product-feature 'postgres :prompt-cont-regexp "")
+;(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
 (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" (shell-quote-argument sql-password))))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 
-(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-(sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
+;(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+;(sql-set-product-feature 'sqlite :prompt-cont-regexp "   \\.\\.\\.> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'sqlite :terminal-command "\\.")
@@ -149,7 +149,7 @@
 
       (when (not session-p)
         (comint-quit-subjob)
-        ;; despite this quit, the process may not be finished
+        ;; despite this quit, the process may not be finished yet
         (let ((kill-buffer-query-functions nil))
           (kill-this-buffer))))
 
@@ -386,7 +386,7 @@ Finnally add the termination command."
 					(concat (replace-regexp-in-string "[\t]" "" ; filter tabs
 														 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
 									(when (string-match terminal-command s) "\n"))))
-			commands " \n" ))
+			commands " " )) ; the only way to  stop on error,
 	 "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
 
