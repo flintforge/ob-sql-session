@@ -64,7 +64,7 @@
 (defcustom org-babel-default-header-args:sql-session
   '((:engine . "sqlite"))
   "Default header args."
-	:type '(alist :key-type symbol :value-type string)
+  :type '(alist :key-type symbol :value-type string)
   :group 'org-babel
   :safe t)
 
@@ -126,21 +126,21 @@
          (sql--buffer (org-babel-sql-session-connect
                        engine processed-params session)))
 
-		(setq sql-product engine)
+    (setq sql-product engine)
 
-		;; Substitute $vars in body with the associated value. (See also s-format).
-		(mapc
-		 (lambda(v) (setq body (string-replace
-											 (concat "$"(symbol-name(car v)))(cdr v) body)))
-		 vars)
+    ;; Substitute $vars in body with the associated value. (See also s-format).
+    (mapc
+     (lambda(v) (setq body (string-replace
+                       (concat "$"(symbol-name(car v)))(cdr v) body)))
+     vars)
 
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (erase-buffer))
 
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
-			(message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
-			(process-send-string (current-buffer) (ob-sql-format-query body engine))
+      (message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
+      (process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
         (sleep-for 0.03))
@@ -183,10 +183,10 @@ running process attached to it, and, if PRODUCT or CONNECTION are
 specified, it's `sql-product' or `sql-connection' must match."
 
   (let ((buffer (get-buffer buffer)))
-		(and buffer
-				 (buffer-live-p buffer)
-				 (let ((proc (get-buffer-process buffer)))
-					 (and proc (memq (process-status proc) '(open run )))))))
+    (and buffer
+         (buffer-live-p buffer)
+         (let ((proc (get-buffer-process buffer)))
+           (and proc (memq (process-status proc) '(open run )))))))
 
 
  (defun org-babel-sql-session-connect (engine params session)
@@ -209,7 +209,7 @@ When there is not, the execution will be given to ob-sql.el"
          (sql-password  (cdr (assoc :dbpassword params)))
          (sql-server    (cdr (assoc :dbhost params)))
          ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
-				 (buffer-name (format "%s"(if (string= session "none") ""
+         (buffer-name (format "%s"(if (string= session "none") ""
                                 (format "[%s]" session))))
          ;; (buffer-name (format "%s%s://%s%s/%s"
          ;;                      (if (string= session "none") ""
@@ -220,10 +220,10 @@ When there is not, the execution will be given to ob-sql.el"
          ;;                      sql-database))
          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
-		;; I get a nil on sql-for-each-login on the first call
-		;; to sql-interactive  at
-		;; (if (sql-buffer-live-p ob-sql-buffer)
-		;; so put sql-buffer-live-p aside
+    ;; I get a nil on sql-for-each-login on the first call
+    ;; to sql-interactive  at
+    ;; (if (sql-buffer-live-p ob-sql-buffer)
+    ;; so put sql-buffer-live-p aside
 
     (if (ob-sql-session-buffer-live-p ob-sql-buffer)
         (progn
@@ -234,9 +234,9 @@ When there is not, the execution will be given to ob-sql.el"
           ob-sql-buffer)
 
       ;; otherwise initiate a connection
-			(save-window-excursion
-				(setq ob-sql-buffer              ; start the client
-							(ob-sql-connect engine buffer-name)))
+      (save-window-excursion
+        (setq ob-sql-buffer              ; start the client
+              (ob-sql-connect engine buffer-name)))
 
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
@@ -287,8 +287,8 @@ should also be prompted."
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature engine :ob-sql-session-clear-output
        (concat "\\(" prompt-regexp "\\)"
-							 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
-							 (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+               "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+               (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
       ;; Get credentials.
       ;; either all fields are provided
@@ -311,56 +311,56 @@ should also be prompted."
             (default-directory (or sql-default-directory default-directory)))
 
         ;; The password wallet returns a function
-				;; which supplies the password. (untested)
+        ;; which supplies the password. (untested)
         (when (functionp sql-password)
           (setq sql-password (funcall sql-password)))
 
-				;; Erase previous sql-buffer as we'll be looking for it's prompt
-				;; to indicate session readyness
-				(let ((previous-session
-							 (get-buffer (format "*SQL: %s*" sql-cnx))))
-					(when previous-session
-						(with-current-buffer
-								previous-session (erase-buffer))))
+        ;; Erase previous sql-buffer as we'll be looking for it's prompt
+        ;; to indicate session readyness
+        (let ((previous-session
+               (get-buffer (format "*SQL: %s*" sql-cnx))))
+          (when previous-session
+            (with-current-buffer
+                previous-session (erase-buffer))))
 
         (setq
          sqli-buffer
-				 (let ((process-environment (copy-sequence process-environment))
-							 (variables (sql-get-product-feature engine :environment)))
-					 (mapc (lambda (elem) 	 ; environment variables, evaluated here
-										 (setenv (car elem) (eval(cadr elem))))
-									 variables)
-					 (funcall (sql-get-product-feature engine :sqli-comint-func)
-										engine
-										(sql-get-product-feature engine :sqli-options)
-										(format "SQL: %s" sql-cnx))))
+         (let ((process-environment (copy-sequence process-environment))
+               (variables (sql-get-product-feature engine :environment)))
+           (mapc (lambda (elem)   ; environment variables, evaluated here
+                     (setenv (car elem) (eval(cadr elem))))
+                   variables)
+           (funcall (sql-get-product-feature engine :sqli-comint-func)
+                    engine
+                    (sql-get-product-feature engine :sqli-options)
+                    (format "SQL: %s" sql-cnx))))
         ;; no need for a numbered buffer:
         ;; connexion is closed, buffer killed when there's no session
         ;; engine/user/db/session points to the same buffer otherwise
-				;; [2024-06-24 lun.] actually we will need this,
-				;; since the buffer naming changed
+        ;; [2024-06-24 lun.] actually we will need this,
+        ;; since the buffer naming changed
 
         (setq-local sql-buffer (buffer-name sqli-buffer))
 
-				(with-current-buffer sql-buffer
-					(let ((proc (get-buffer-process sqli-buffer))
-								(secs 3)
-								(step 0.2))
-						(while (and proc
-												(memq (process-status proc) '(open run))
-												(or (accept-process-output proc step)
-														(<= 0.0 (setq secs (- secs step))))
-												(progn (goto-char (point-max))
-															 (not (re-search-backward
-																		 prompt-regexp 0 t))))
-							(sql-progress-reporter-update rpt)))
+        (with-current-buffer sql-buffer
+          (let ((proc (get-buffer-process sqli-buffer))
+                (secs 3)
+                (step 0.2))
+            (while (and proc
+                        (memq (process-status proc) '(open run))
+                        (or (accept-process-output proc step)
+                            (<= 0.0 (setq secs (- secs step))))
+                        (progn (goto-char (point-max))
+                               (not (re-search-backward
+                                     prompt-regexp 0 t))))
+              (sql-progress-reporter-update rpt)))
 
-					;; no prompt, connexion failed (and process is terminated)
-					(goto-char (point-max))
-					(when (not (re-search-backward prompt-regexp 0 t))
-						(user-error "Connexion failed")))
-				;;(run-hooks 'sql-login-hook) ; don't
-				)
+          ;; no prompt, connexion failed (and process is terminated)
+          (goto-char (point-max))
+          (when (not (re-search-backward prompt-regexp 0 t))
+            (user-error "Connexion failed")))
+        ;;(run-hooks 'sql-login-hook) ; don't
+        )
       (sql-progress-reporter-done rpt)
       (get-buffer sqli-buffer))))
 
@@ -373,43 +373,43 @@ Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
 
-	(setq sql-product engine)
-	(concat
-	 (let ((commands (split-string str "\n"))
-				 (terminal-command
-					(concat "^\s*"
-									(sql-get-product-feature sql-product :terminal-command))))
-		 (mapconcat
-			(lambda(s)
-				(when (not
-							 (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-					(concat (replace-regexp-in-string "[\t]" "" ; filter tabs
-														 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
-									(when (string-match terminal-command s) "\n"))))
-			commands " " )) ; the only way to  stop on error,
-	 "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
+  (setq sql-product engine)
+  (concat
+   (let ((commands (split-string str "\n"))
+         (terminal-command
+          (concat "^\s*"
+                  (sql-get-product-feature sql-product :terminal-command))))
+     (mapconcat
+      (lambda(s)
+        (when (not
+               (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
+          (concat (replace-regexp-in-string "[\t]" "" ; filter tabs
+                             (replace-regexp-in-string "--.*" "" s)) ;; remove comments
+                  (when (string-match terminal-command s) "\n"))))
+      commands " " )) ; the only way to  stop on error,
+   "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
 
 (defun ob-sql-session-comint-output-filter (_proc string)
-	"Process output STRING of PROC gets redirected to a temporary buffer.
+  "Process output STRING of PROC gets redirected to a temporary buffer.
 It is called several times consecutively as the shell outputs and flush
 its message buffer"
 
-	;; Inserting the result in the sql process buffer
-	;; adds it to the terminal prompt and as a result
-	;; the ouput gets passed as input onto the next command
-	;; line; See `comint-redirect-setup' to possibly fix that
-	;; (with-current-buffer (process-buffer proc) (insert output))
+  ;; Inserting the result in the sql process buffer
+  ;; adds it to the terminal prompt and as a result
+  ;; the ouput gets passed as input onto the next command
+  ;; line; See `comint-redirect-setup' to possibly fix that
+  ;; (with-current-buffer (process-buffer proc) (insert output))
 
-	(when (string-match ob-sql-session--batch-end-indicator string)
-		(setq ob-sql-session-command-terminated t))
+  (when (string-match ob-sql-session--batch-end-indicator string)
+    (setq ob-sql-session-command-terminated t))
 
-	(with-current-buffer (get-buffer-create "*ob-sql-result*")
-		(insert string)))
+  (with-current-buffer (get-buffer-create "*ob-sql-result*")
+    (insert string)))
 
 (with-eval-after-load "org"
-	(add-to-list 'org-src-lang-modes '("sql-session" . sql))
-	(add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql")))
+  (add-to-list 'org-src-lang-modes '("sql-session" . sql))
+  (add-to-list 'org-babel-tangle-lang-exts '("sql-session" . "sql")))
 ;;(add-to-list 'org-structure-template-alist '("sql" . "src sql-session-mode")
 ;; or (customize-variable 'org-structure-template-alist)
 
