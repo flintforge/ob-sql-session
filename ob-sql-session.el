@@ -51,7 +51,8 @@
 ;; In session mode, the connexion parameter are required only when
 ;; login, and no longer required for further requests.
 
-;; Commands blocks are passed to the terminal as one unique line
+;; SQL commands blocks are passed to the terminal as one unique line
+;; while special client commands are given one line at a time.
 
 ;;; Code:
 
@@ -88,7 +89,7 @@
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
 ;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" (shell-quote-argument sql-password))))
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
