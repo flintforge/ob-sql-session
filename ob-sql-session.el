@@ -88,7 +88,7 @@
 (defvar ob-sql-session-command-terminated nil)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
+																				;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
 (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
@@ -179,7 +179,7 @@ This redefines `sql-buffer-live-p' of sql.el, considering the terminal
 is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
 object or a buffer name.  The buffer must be a live buffer, have a
 running process attached to it, and, if PRODUCT or CONNECTION are
-specified, it's `sql-product' or `sql-connection' must match."
+specified, its `sql-product' or `sql-connection' must match."
 
   (let ((buffer (get-buffer buffer)))
     (and buffer
@@ -188,8 +188,8 @@ specified, it's `sql-product' or `sql-connection' must match."
            (and proc (memq (process-status proc) '(open run )))))))
 
 
- (defun org-babel-sql-session-connect (engine params session)
-   "Start the SQL client of ENGINE if it has not in a buffer.
+(defun org-babel-sql-session-connect (engine params session)
+  "Start the SQL client of ENGINE if it has not in a buffer.
 Clear the intermediate buffer from previous output,
 and set the process filter.
 Return the comint process buffer.
@@ -209,7 +209,7 @@ When there is not, the execution will be given to ob-sql.el"
          (sql-server    (cdr (assoc :dbhost params)))
          ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
          (buffer-name (format "%s"(if (string= session "none") ""
-                                (format "[%s]" session))))
+																		(format "[%s]" session))))
          ;; (buffer-name (format "%s%s://%s%s/%s"
          ;;                      (if (string= session "none") ""
          ;;                        (format "[%s] " session))
@@ -285,9 +285,9 @@ should also be prompted."
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature engine :ob-sql-session-clear-output
-       (concat "\\(" prompt-regexp "\\)"
-               "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
-               (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+															 (concat "\\(" prompt-regexp "\\)"
+																			 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+																			 (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
       ;; Get credentials.
       ;; either all fields are provided
@@ -327,8 +327,8 @@ should also be prompted."
          (let ((process-environment (copy-sequence process-environment))
                (variables (sql-get-product-feature engine :environment)))
            (mapc (lambda (elem)   ; environment variables, evaluated here
-                     (setenv (car elem) (eval(cadr elem))))
-                   variables)
+                   (setenv (car elem) (eval(cadr elem))))
+                 variables)
            (funcall (sql-get-product-feature engine :sqli-comint-func)
                     engine
                     (sql-get-product-feature engine :sqli-options)
@@ -383,7 +383,7 @@ Finnally add the termination command."
         (when (not
                (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
           (concat (replace-regexp-in-string "[\t]" "" ; filter tabs
-                             (replace-regexp-in-string "--.*" "" s)) ;; remove comments
+																						(replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
    "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
