@@ -194,13 +194,12 @@ Clear the intermediate buffer from previous output,
 and set the process filter.
 Return the comint process buffer.
 
-The buffer naming was shortened from '[session]
-engine://user@host/database', that clearly identifies the connexion from
-Emacs, to *SQL [session]* in order to retrieved a session with its
-name alone, the other parameters in the header args beeing no longer needed
-once the session is established.
-
-When there is not, the execution will be given to ob-sql.el"
+The buffer naming was shortened from
+*[session] engine://user@host/database*,
+that clearly identifies the connexion from Emacs, to
+*SQL [session]* in order to retrieved a session with its
+name alone, the other parameters in the header args beeing
+no longer needed while the session stays open."
 
 
   (let* ((sql-database  (cdr (assoc :database params)))
