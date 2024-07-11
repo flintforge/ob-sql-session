@@ -113,7 +113,6 @@
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY with PARAMS."
-
   (let* (
          (processed-params (org-babel-process-params params))
          (session (cdr (assoc :session processed-params)))
@@ -141,7 +140,7 @@
     (with-current-buffer (get-buffer sql--buffer)
       (message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
       (process-send-string (current-buffer) (ob-sql-format-query body engine))
-      ;; check org-babel-comint-async-register
+      ;; todo: check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
         (sleep-for 0.03))
       ;; command finished, remove filter
