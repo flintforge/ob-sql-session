@@ -70,39 +70,39 @@ Assume the source block is at POSITION if non-nil."
 
 (defun sqlite-test (code expect &optional expected-result)
   (babel-block-test #'setup
-										"sql-session :engine sqlite :session Tests"
-										code expect))
+                    "sql-session :engine sqlite :session Tests"
+                    code expect))
 
 (ert-deftest sqllite-000:test-header ()
-  "create table."
+  "Create table."
   (sqlite-test ".headers off" nil))
 
 
 (ert-deftest sqllite-001:test-create ()
-  "create table."
+  "Create table."
   (sqlite-test ".headers off
 
 create table test(one varchar(10), two int);" nil))
 
 (ert-deftest sqllite-002:test-insert ()
-  "insert into table."
+  "Insert into table."
   (sqlite-test "insert into test values(\'hello\',\'world\');" nil))
 
 (ert-deftest sqllite-003:test-select ()
-  "select from table."
+  "Select from table."
   (sqlite-test "select * from test;"
-							 "hello|world"))
+               "hello|world"))
 
 (ert-deftest sqllite-004:test-filter-tabs ()
-  "insert with tabs"
+  "Insert with tabs."
   (sqlite-test "
       --create table test(x,y);
-				select * from test;
+        select * from test;
 
 "
-"hello|world"))
+               "hello|world"))
 
-    ;; gh is on SQLite version 3.37.2 2022-01-06,
+;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
 ;; (ert-deftest sqllite-005:test-stop-on-error ()
 ;;   "stop on error.
@@ -116,37 +116,35 @@ create table test(one varchar(10), two int);" nil))
 
 
 (ert-deftest sqllite-005a:test-multiple-commands ()
-	"Copy pasting this in sqlite3 will give the same result.
-Looks like the terminal
-"
-	:expected-result :failed
+	"Copy pasting this in sqlite3 will give the same result."
+  :expected-result :failed
   (sqlite-test
-	 "
+   "
     .headers on
 -- ?
     .bail on
 
 select 1;
 "
-	 "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
-)) ;; variations expected between sqlite versions
+   "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
+   )) ;; variations expected between sqlite versions
 
 
 (ert-deftest sqllite-005a:test-commands ()
   (sqlite-test
-	 ".headers on
+   ".headers on
 " nil))
 
 (ert-deftest sqllite-005b:test-header-on ()
   (sqlite-test
-	 ".headers on
+   ".headers on
 --create table test(x,y);
-		delete from test;
-		insert into test values ('sqlite','3.40');
-		insert into test values (1,2);
-		select * from test;"
+    delete from test;
+    insert into test values ('sqlite','3.40');
+    insert into test values (1,2);
+    select * from test;"
 
-"one|two
+   "one|two
 sqlite|3.4
 1|2"))
 
