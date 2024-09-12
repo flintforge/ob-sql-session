@@ -140,6 +140,27 @@ DB tested:
 - Postgres
 - Sqlite
 
+** comparison with ob-sql-mode
+
+ob-sql-mode :
+- is simple : forward the sql source through `sql-redirect'
+- has test suite
+- but gives clunky output
+- no =:results= table
+- does not handle special sql engine client commands
+- prompt again for connection parameters when restarting a session
+
+ob-sql-session :
+- handle large results
+- results as tables
+- header variables (=:var=)
+- accept special commands given to a specific sql shell
+- memorize login parameters
+- prompt for interactive authentication only if there is a
+  parameter left blank
+- can provide password =with-environment-variables=
+- provide some more tests
+
 ** usage
 
 #+begin_example
