@@ -2,12 +2,12 @@
 
 ;; Copyright (C) 2024 Free Software Foundation, Inc.
 
-;; Author: Phil Estival pe@7d.nz
-;; Package-Requires: ((emacs "27.2")) ((org "9.5"))
+;; Author: Phil Estival <pe@7d.nz>
+;; Package-Requires: ((emacs "27.2") (org "9.5"))
 ;; Keywords: literate programming, reproducible research
 ;; URL: http://github.com/flintforge/ob-sql-session
 
-;; This file is NOT part of GNU Emacs.
+;; This file is part of GNU Emacs.
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -46,11 +46,8 @@
 ;; $ by the associated value.  This does not declare new variables
 ;; (with a \set command for instance) as they would be stateful and
 ;; span over blocks in sessions.
-;;
-
 ;; In session mode, the connexion parameter are required only when
 ;; login, and no longer required for further requests.
-
 ;; SQL commands blocks are passed to the terminal as one unique line
 ;; while special client commands are given one line at a time.
 
@@ -65,8 +62,9 @@
 (defcustom org-babel-default-header-args:sql-session
   '((:engine . "sqlite"))
   "Default header args."
-  :type '(alist :key-type symbol :value-type string)
-  :group 'org-babel
+  :type '(alist :key-type symbol :value-type string
+								) ;adding an :options as described in (elisp) Composite Types is useful!
+  :group 'org-babel			;perhaps create a new sub-group?
   :safe t)
 
 (defconst org-babel-header-args:sql-session
@@ -88,7 +86,7 @@
 (defvar ob-sql-session-command-terminated nil)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-																				;(sql-set-product-feature 'postgres :prompt-cont-regexp "")
+
 (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
@@ -107,14 +105,11 @@
                                     (sql-get-product-feature 'postgres :prompt-cont-regexp ))
                             "-P" "pager=off"
                             "-P" "footer=off"
-                            "-A"
-                            ))
-:
+                            "-A" ))
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY with PARAMS."
-  (let* (
-         (processed-params (org-babel-process-params params))
+  (let* ((processed-params (org-babel-process-params params))
          (session (cdr (assoc :session processed-params)))
          (engine  (cdr (assoc :engine processed-params)))
          (engine  (intern (or engine (user-error "Missing :engine"))))
@@ -126,22 +121,19 @@
                        engine processed-params session)))
 
     (setq sql-product engine)
-
     ;; Substitute $vars in body with the associated value. (See also s-format).
-    (mapc
-     (lambda(v) (setq body (string-replace
-                       (concat "$"(symbol-name(car v)))(cdr v) body)))
-     vars)
-
+    (dolist (v vars)
+      (setq body (string-replace
+                  (concat "$"(symbol-name(car v)))(cdr v) body)))
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (erase-buffer))
-
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
       (message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
       (process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; todo: check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
+				;; could there be a race condition here as described in (elisp) Accepting Output?
         (sleep-for 0.03))
       ;; command finished, remove filter
       (set-process-filter (get-buffer-process sql--buffer) nil)
@@ -155,21 +147,22 @@
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (goto-char (point-min))
-      (replace-regexp ;; clear the output or prompt and termination
-       (sql-get-product-feature engine :ob-sql-session-clear-output) "")
+			;; clear the output or prompt and termination
+			(while (re-search-forward (sql-get-product-feature engine :ob-sql-session-clear-output)
+																nil t)
+				(replace-match ""))
 
-      ;; some client can also directly format to tables
-      (when (member "table" results)
-        ;;(org-table-convert-region (point-min)(point-max) "|")
-      ;;; or
-        (goto-char (point-max)) (delete-char -1) ;; last newline
-        (beginning-of-line)
-        (let ((end (point)))
-          (string-insert-rectangle (point-min) end "|"))
-        ;; where does this extra | comes from ?
-        (goto-char (point-min)) (delete-char 1))
+			;; some client can also directly format to tables
+			(when (member "table" results)
+				;; close equivalent to (org-table-convert-region (point-min)(point-max) "|")
+				(goto-char (point-max)) (delete-char -1) ;; last newline
+				(beginning-of-line)
+				(let ((end (point)))
+					(string-insert-rectangle (point-min) end "|"))
+				;; where does this extra | comes from ?
+				(goto-char (point-min)) (delete-char 1))
 
-      (buffer-string))))
+			(buffer-string))))
 
 
 (defun ob-sql-session-buffer-live-p (buffer)
@@ -180,19 +173,19 @@ is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
 object or a buffer name.  The buffer must be a live buffer, have a
 running process attached to it, and, if PRODUCT or CONNECTION are
 specified, its `sql-product' or `sql-connection' must match."
-
   (let ((buffer (get-buffer buffer)))
     (and buffer
          (buffer-live-p buffer)
          (let ((proc (get-buffer-process buffer)))
-           (and proc (memq (process-status proc) '(open run )))))))
+           (and proc (memq (process-status proc) '(open run)))))))
 
 
 (defun org-babel-sql-session-connect (engine params session)
   "Start the SQL client of ENGINE if it has not in a buffer.
-Clear the intermediate buffer from previous output,
-and set the process filter.
-Return the comint process buffer.
+PARAMS provides the sql connection parameters for a new or
+existing SESSION.  Clear the intermediate buffer from previous
+output, and set the process filter.  Return the comint process
+buffer.
 
 The buffer naming was shortened from
 *[session] engine://user@host/database*,
@@ -200,15 +193,13 @@ that clearly identifies the connexion from Emacs, to
 *SQL [session]* in order to retrieved a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
-
-
   (let* ((sql-database  (cdr (assoc :database params)))
          (sql-user      (cdr (assoc :dbuser params)))
          (sql-password  (cdr (assoc :dbpassword params)))
          (sql-server    (cdr (assoc :dbhost params)))
          ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
-         (buffer-name (format "%s"(if (string= session "none") ""
-																		(format "[%s]" session))))
+         (buffer-name (format "%s" (if (string= session "none") ""
+																		 (format "[%s]" session))))
          ;; (buffer-name (format "%s%s://%s%s/%s"
          ;;                      (if (string= session "none") ""
          ;;                        (format "[%s] " session))
@@ -251,7 +242,6 @@ no longer needed while the session stays open."
         ;;(while (not ob-sql-session-connected))
         (sleep-for 0.06)
         (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
-
         ;; set the redirection filter
         (set-process-filter sql-term-proc
                             #'ob-sql-session-comint-output-filter)
@@ -283,11 +273,12 @@ should also be prompted."
           sqli-buffer rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
-      (sql-set-product-feature engine :ob-sql-session-clear-output
-															 (concat "\\(" prompt-regexp "\\)"
-																			 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
-																			 (when prompt-cont-regexp (concat "\\|\\(" prompt-cont-regexp "\\)"))))
-
+      (sql-set-product-feature
+			 engine :ob-sql-session-clear-output
+			 (concat "\\(" prompt-regexp "\\)"
+							 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+							 (when prompt-cont-regexp
+								 (concat "\\|\\(" prompt-cont-regexp "\\)"))))
       ;; Get credentials.
       ;; either all fields are provided
       ;; or there's a specific case were no login is needed
@@ -326,7 +317,7 @@ should also be prompted."
          (let ((process-environment (copy-sequence process-environment))
                (variables (sql-get-product-feature engine :environment)))
            (mapc (lambda (elem)   ; environment variables, evaluated here
-                   (setenv (car elem) (eval(cadr elem))))
+                   (setenv (car elem) (eval (cadr elem))))
                  variables)
            (funcall (sql-get-product-feature engine :sqli-comint-func)
                     engine
@@ -355,8 +346,8 @@ should also be prompted."
 
           ;; no prompt, connexion failed (and process is terminated)
           (goto-char (point-max))
-          (when (not (re-search-backward prompt-regexp 0 t))
-            (user-error "Connexion failed")))
+          (unless (re-search-backward prompt-regexp 0 t)
+            (user-error "Connection failed"))) ;is this a _user_ error?
         ;;(run-hooks 'sql-login-hook) ; don't
         )
       (sql-progress-reporter-done rpt)
@@ -370,7 +361,6 @@ Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
-
   (setq sql-product engine)
   (concat
    (let ((commands (split-string str "\n"))
@@ -411,8 +401,8 @@ its message buffer"
 ;;(add-to-list 'org-structure-template-alist '("sql" . "src sql-session-mode")
 ;; or (customize-variable 'org-structure-template-alist)
 
+;; LocalWords: sql org-mode session
 
 (provide 'ob-sql-session)
 
-;; LocalWords: sql org-mode session
 ;;; ob-sql-session.el ends here
