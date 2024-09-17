@@ -36,11 +36,16 @@
 ;; Header args available:
 ;; - engine
 ;; - dbhost
+;; - dbport
 ;; - database
 ;; - dbuser
+;; - dbpassword
 ;; - results
 ;; - session
 ;; - var
+
+;; TODO:
+;; - colnames (see ob-sql.el)
 
 ;; Variables declared in a header substitute identifiers prefixed with
 ;; $ by the associated value.  This does not declare new variables
@@ -250,7 +255,7 @@ no longer needed while the session stays open."
 
 
 (defun ob-sql-connect (&optional engine sql-cnx)
-  "Run ENGINE interpreter as an inferior process.
+  "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
 
 Imported from sql.el with a few modification in order
 to prompt for authentication only if there's a missing
@@ -371,8 +376,9 @@ Finnally add the termination command."
       (lambda(s)
         (when (not
                (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-          (concat (replace-regexp-in-string "[\t]" "" ; filter tabs
-																						(replace-regexp-in-string "--.*" "" s)) ;; remove comments
+          (concat (replace-regexp-in-string
+									 "[\t]" "" ; filter tabs
+									 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
    "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
