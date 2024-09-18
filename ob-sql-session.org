@@ -140,7 +140,66 @@ DB tested:
 - Postgres
 - Sqlite
 
-** comparison with ob-sql-mode
+** Comparison with ob-sql
+
+comparison with ob-sql-mode
+
+=ob-sql-session= exists for session support, which is in the TODOs list
+of =ob-sql=.
+
+- =ob-sql= command execution relies on =org-babel-eval=
+  (→ process-file → call-process).
+
+- =ob-sql-session= runs an inferior process (in which
+  =sqli-interactive-mode= can be activated when needed).  The process
+  output is filtered (e.g. results and prompts).  When a session is
+  demanded, this shell stays open for further commands and can keep a
+  state (typically, when given special SQL commands).
+
+|-----------+----------------------------+----------------------------|
+|           | ob-sql                     | ob-sql-session             |
+|-----------+----------------------------+----------------------------|
+| Feat.     | - cmdline                  | - support for sessions     |
+|           | - colnames as header arg   | - optionnal colnames       |
+|-----------+----------------------------+----------------------------|
+| TODO      |                            |                            |
+|-----------+----------------------------+----------------------------|
+|           | - support for sessions     | - colnames as header arg   |
+|           | - support for more engines | - support for more engines |
+|-----------+----------------------------+----------------------------|
+| engines   |                            |                            |
+| supported |                            |                            |
+|-----------+----------------------------+----------------------------|
+|           | - mysql                    | - Postgresql               |
+|           | - dbi                      | - sqlite                   |
+|           | - mssql                    |                            |
+|           | - sqsh                     |                            |
+|           | - postgresql               |                            |
+|           | - oracle                   |                            |
+|           | - vertica                  |                            |
+|           | - saphana                  |                            |
+|-----------+----------------------------+----------------------------|
+
+
+- =ob-sql= defines =org-babel-sql-dbstring-[engine]=
+   to be provided on a shell command line.
+
+- =ob-sql-session=, likewise, has to define
+   - a connection string,
+   - the prompt,
+   - and the terminal command prefix
+     for a every supported SQL client shell (or "engines")
+
+   - requires sql.el.
+     With the above defined, it should be compatible
+     with most database of the sql.el's zoo. maybe.
+
+   - =adapts =sql-connect= of =sql.el= by declaring a function
+     =ob-sql-connect=, in order to prompt only
+     for missing connection
+     parameters.
+
+** Comparison with ob-sql-mode
 
 ob-sql-mode :
 - is simple : forward the sql source through `sql-redirect'
