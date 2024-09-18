@@ -140,9 +140,7 @@ DB tested:
 - Postgres
 - Sqlite
 
-** Comparison with ob-sql
-
-comparison with ob-sql-mode
+** Comparison with the build-in ob-sql
 
 =ob-sql-session= exists for session support, which is in the TODOs list
 of =ob-sql=.
