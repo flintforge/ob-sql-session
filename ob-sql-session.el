@@ -7,7 +7,7 @@
 ;; Keywords: literate programming, reproducible research
 ;; URL: http://github.com/flintforge/ob-sql-session
 
-;; This file is part of GNU Emacs.
+;; This file is NOT part of GNU Emacs.
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
