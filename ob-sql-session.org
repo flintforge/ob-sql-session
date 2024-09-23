@@ -192,7 +192,7 @@ of =ob-sql=.
      With the above defined, it should be compatible
      with most database of the sql.el's zoo. maybe.
 
-   - =adapts =sql-connect= of =sql.el= by declaring a function
+   - adapts =sql-connect= of =sql.el= by declaring a function
      =ob-sql-connect=, in order to prompt only
      for missing connection
      parameters.
