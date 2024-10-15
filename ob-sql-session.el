@@ -196,10 +196,11 @@ buffer.
 
 The buffer naming was shortened from
 *[session] engine://user@host/database*,
-that clearly identifies the connexion from Emacs, to
-*SQL [session]* in order to retrieved a session with its
+that clearly identifies the connexion from Emacs,
+to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
+
   (let* ((sql-database  (cdr (assoc :database params)))
          (sql-user      (cdr (assoc :dbuser params)))
          (sql-password  (cdr (assoc :dbpassword params)))
