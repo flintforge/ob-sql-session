@@ -164,8 +164,10 @@
 				(beginning-of-line)
 				(let ((end (point)))
 					(string-insert-rectangle (point-min) end "|"))
-				;; where does this extra | comes from ?
-				(goto-char (point-min)) (delete-char 1))
+
+				(goto-char (point-min))(delete-char 1) ; delete extra |
+				(end-of-line)(newline)
+				(insert-char #x7C)(insert-char #x2D)) ; insert header separator |-
 
 			(buffer-string))))
 
