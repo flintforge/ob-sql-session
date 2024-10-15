@@ -384,7 +384,7 @@ Finnally add the termination command."
 									 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
-   "\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
+   ";\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
 
 (defun ob-sql-session-comint-output-filter (_proc string)
