@@ -159,32 +159,34 @@
 
 			;; some client can also directly format to tables
 			(when (member "table" results)
-				;; close equivalent to (org-table-convert-region (point-min)(point-max) "|")
+				;; equivalent to (org-table-convert-region (point-min)(point-max) "|")
 				(goto-char (point-max)) (delete-char -1) ;; last newline
 				(beginning-of-line)
 				(let ((end (point)))
 					(string-insert-rectangle (point-min) end "|"))
+				(goto-char (point-min))
+				(delete-char 1) ; delete extra |
+				(when (> (count-lines (point-min)(point-max)) 1)
 
-				(goto-char (point-min))(delete-char 1) ; delete extra |
-				(end-of-line)(newline)
-				(insert-char #x7C)(insert-char #x2D)) ; insert header separator |-
+					(end-of-line)(newline)
+					(insert-char #x7C)(insert-char #x2D))) ; insert header separator |-
 
 			(buffer-string))))
 
 
 (defun ob-sql-session-buffer-live-p (buffer)
-  "Return non-nil if the process associated with buffer is live.
+	"Return non-nil if the process associated with buffer is live.
 
 This redefines `sql-buffer-live-p' of sql.el, considering the terminal
 is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
 object or a buffer name.  The buffer must be a live buffer, have a
 running process attached to it, and, if PRODUCT or CONNECTION are
 specified, its `sql-product' or `sql-connection' must match."
-  (let ((buffer (get-buffer buffer)))
-    (and buffer
-         (buffer-live-p buffer)
-         (let ((proc (get-buffer-process buffer)))
-           (and proc (memq (process-status proc) '(open run)))))))
+	(let ((buffer (get-buffer buffer)))
+		(and buffer
+				 (buffer-live-p buffer)
+				 (let ((proc (get-buffer-process buffer)))
+					 (and proc (memq (process-status proc) '(open run)))))))
 
 
 (defun org-babel-sql-session-connect (engine params session)
