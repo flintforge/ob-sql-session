@@ -68,7 +68,7 @@
   '((:engine . "sqlite"))
   "Default header args."
   :type '(alist :key-type symbol :value-type string
-								:options ("sqlite" "mysql" "postgres"))
+                :options ("sqlite" "mysql" "postgres"))
   :group 'org-babel-sql
   :safe t)
 
@@ -117,7 +117,7 @@
          (engine  (cdr (assoc :engine params)))
          (engine  (intern (or engine (user-error "Missing :engine"))))
          (vars (org-babel--get-vars params))
-         (results (split-string (cdr (assq :results params ))))
+         (results (cdr (assq :result-params params)))
          (session-p (not (string= session "none")))
          (sql--buffer (org-babel-sql-session-connect
                        engine params session)))
@@ -135,7 +135,7 @@
       (process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; todo: check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
-				;; could there be a race condition here as described in (elisp) Accepting Output?
+        ;; could there be a race condition here as described in (elisp) Accepting Output?
         (sleep-for 0.03))
       ;; command finished, remove filter
       (set-process-filter (get-buffer-process sql--buffer) nil)
@@ -149,42 +149,42 @@
     ;; get results
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (goto-char (point-min))
-			;; clear the output or prompt and termination
-			(while (re-search-forward
-							(sql-get-product-feature engine :ob-sql-session-clear-output)
-							nil t)
-				(replace-match ""))
+      ;; clear the output or prompt and termination
+      (while (re-search-forward
+              (sql-get-product-feature engine :ob-sql-session-clear-output)
+              nil t)
+        (replace-match ""))
 
-			;; some client can also directly format to tables
-			(when (member "table" results)
-				;; equivalent to (org-table-convert-region (point-min)(point-max) "|")
-				(goto-char (point-max)) (delete-char -1) ;; last newline
-				(beginning-of-line)
-				(let ((end (point)))
-					(string-insert-rectangle (point-min) end "|"))
-				(goto-char (point-min))
-				(delete-char 1) ; delete extra |
-				(when (> (count-lines (point-min)(point-max)) 1)
+      ;; some client can also directly format to tables
+      (when (member "table" results)
+        ;; equivalent to (org-table-convert-region (point-min)(point-max) "|")
+        (goto-char (point-max)) (delete-char -1) ;; last newline
+        (beginning-of-line)
+        (let ((end (point)))
+          (string-insert-rectangle (point-min) end "|"))
+        (goto-char (point-min))
+        (delete-char 1) ; delete extra |
+        (when (> (count-lines (point-min)(point-max)) 1)
 
-					(end-of-line)(newline)
-					(insert-char #x7C)(insert-char #x2D))) ; insert header separator |-
+          (end-of-line)(newline)
+          (insert-char #x7C)(insert-char #x2D))) ; insert header separator |-
 
-			(buffer-string))))
+      (buffer-string))))
 
 
 (defun ob-sql-session-buffer-live-p (buffer)
-	"Return non-nil if the process associated with buffer is live.
+  "Return non-nil if the process associated with buffer is live.
 
 This redefines `sql-buffer-live-p' of sql.el, considering the terminal
 is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
 object or a buffer name.  The buffer must be a live buffer, have a
 running process attached to it, and, if PRODUCT or CONNECTION are
 specified, its `sql-product' or `sql-connection' must match."
-	(let ((buffer (get-buffer buffer)))
-		(and buffer
-				 (buffer-live-p buffer)
-				 (let ((proc (get-buffer-process buffer)))
-					 (and proc (memq (process-status proc) '(open run)))))))
+  (let ((buffer (get-buffer buffer)))
+    (and buffer
+         (buffer-live-p buffer)
+         (let ((proc (get-buffer-process buffer)))
+           (and proc (memq (process-status proc) '(open run)))))))
 
 
 (defun org-babel-sql-session-connect (engine params session)
@@ -207,7 +207,7 @@ no longer needed while the session stays open."
          (sql-server    (cdr (assoc :dbhost params)))
          ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
          (buffer-name (format "%s" (if (string= session "none") ""
-																		 (format "[%s]" session))))
+                                     (format "[%s]" session))))
          ;; (buffer-name (format "%s%s://%s%s/%s"
          ;;                      (if (string= session "none") ""
          ;;                        (format "[%s] " session))
@@ -271,7 +271,7 @@ should also be prompted."
          ((assoc engine sql-product-alist) ; Product specified
           engine)
          (t sql-product)))              ; Default to sql-engine
-
+ 
   (when (sql-get-product-feature sql-product :sqli-comint-func)
     ;; If no new name specified or new name in buffer name,
     ;; try to pop to an active SQL interactive for the same engine
@@ -282,11 +282,11 @@ should also be prompted."
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature
-			 engine :ob-sql-session-clear-output
-			 (concat "\\(" prompt-regexp "\\)"
-							 "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
-							 (when prompt-cont-regexp
-								 (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+       engine :ob-sql-session-clear-output
+       (concat "\\(" prompt-regexp "\\)"
+               "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+               (when prompt-cont-regexp
+                 (concat "\\|\\(" prompt-cont-regexp "\\)"))))
       ;; Get credentials.
       ;; either all fields are provided
       ;; or there's a specific case were no login is needed
@@ -380,8 +380,8 @@ Finnally add the termination command."
         (when (not
                (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
           (concat (replace-regexp-in-string
-									 "[\t]" "" ; filter tabs
-									 (replace-regexp-in-string "--.*" "" s)) ;; remove comments
+                   "[\t]" "" ; filter tabs
+                   (replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
    ";\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
