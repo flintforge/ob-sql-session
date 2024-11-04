@@ -68,8 +68,8 @@
   '((:engine . "sqlite"))
   "Default header args."
   :type '(alist :key-type symbol :value-type string
-								) ;adding an :options as described in (elisp) Composite Types is useful!
-  :group 'org-babel			;perhaps create a new sub-group?
+								:options ("sqlite" "mysql" "postgres"))
+  :group 'org-babel-sql
   :safe t)
 
 (defconst org-babel-header-args:sql-session
@@ -90,17 +90,15 @@
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+;; (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+;; (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+;; (sql-set-product-feature 'postgres :terminal-command "\\\\")
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'postgres :terminal-command "\\\\")
-
-(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+;; (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+;; (sql-set-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -190,7 +188,7 @@ specified, its `sql-product' or `sql-connection' must match."
 
 
 (defun org-babel-sql-session-connect (engine params session)
-  "Start the SQL client of ENGINE if it has not in a buffer.
+  "Start the SQL client of ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
