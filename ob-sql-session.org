@@ -326,7 +326,7 @@ Returning error
 : hello|1
 : world|2
 
-** In order to run sqlite in memory (for older versions of emacs)
+** In order to run sqlite in memory (for older versions of progmodes/sql.el)
 =sql-database= can be /nil/ and no option given to =sql-comint-sqlite=
 
 #+begin_src elisp
@@ -341,6 +341,33 @@ Returning error
                        `(,(expand-file-name sql-database))))))
       (sql-comint product params buf-name)))
 #+end_src
+
+
+
+#+begin_src patch
+modified   lisp/progmodes/sql.el
+@@ -5061,14 +5061,15 @@ sql-sqlite
+   (interactive "P")
+   (sql-product-interactive 'sqlite buffer))
+
+-(defun sql-comint-sqlite (product options &optional buf-name)
++(defun sql-comint-sqlite (product &optional options buf-name)
+   "Create comint buffer and connect to SQLite."
+   ;; Put all parameters to the program (if defined) in a list and call
+   ;; make-comint.
+   (let ((params
+          (append options
+-                 (if (not (string= "" sql-database))
+-                     `(,(expand-file-name sql-database))))))
++                 (if (and sql-database
++                         (not (string= "" sql-database)))
++                         `(,(expand-file-name sql-database))))))
+     (sql-comint product params buf-name)))
+
+#+end_src
+
+
+
 
 Test it:
 #+begin_example
