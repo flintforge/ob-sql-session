@@ -151,7 +151,7 @@
       (goto-char (point-min))
       ;; clear the output or prompt and termination
       (while (re-search-forward
-              (sql-get-product-feature engine :ob-sql-session-clear-output)
+              (sql-get-product-feature engine :ob-sql-session-clean-output)
               nil t)
         (replace-match ""))
 
@@ -271,7 +271,7 @@ should also be prompted."
          ((assoc engine sql-product-alist) ; Product specified
           engine)
          (t sql-product)))              ; Default to sql-engine
- 
+
   (when (sql-get-product-feature sql-product :sqli-comint-func)
     ;; If no new name specified or new name in buffer name,
     ;; try to pop to an active SQL interactive for the same engine
@@ -282,7 +282,7 @@ should also be prompted."
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature
-       engine :ob-sql-session-clear-output
+       engine :ob-sql-session-clean-output
        (concat "\\(" prompt-regexp "\\)"
                "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
                (when prompt-cont-regexp
