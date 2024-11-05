@@ -90,9 +90,8 @@
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
   "Default header args."
   :type '(alist :key-type symbol :value-type string
-                :options ("sqlite" "mysql" "postgres" "dbi"
-                          "mssql" "sqsh" "oracle" "vertica"
-                          "saphana" ))
+                :options ("dbi" "sqlite" "mysql" "postgres"
+                          "sqsh" "mssql" "vertica" "oracle" "saphana" ))
   :group 'org-babel-sql
   :safe t)
 
@@ -130,6 +129,8 @@
                 epilogue)
                "\n")))
 
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+(sql-get-product-feature 'postgres :prompt-regexp )
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
@@ -176,13 +177,14 @@ If HOST and PORT are nil then don't pass them.  This allows you
 to use names defined in your \"TNSNAMES\" file.  So you can
 connect with
 
-  <user>/<password>@<host>:<port>/<database>
+<user>/<password>@<host>:<port>/<database>
 
 or
 
-  <user>/<password>@<database>
+<user>/<password>@<database>
 
 using its alias."
+  
   (when user (setq user (shell-quote-argument user)))
   (when password (setq password (shell-quote-argument password)))
   (when database (setq database (shell-quote-argument database)))
@@ -195,8 +197,8 @@ using its alias."
 
 (defun org-babel-sql-dbstring-mssql (host user password database)
   "Make sqlcmd command line args for database connection.
-`sqlcmd' is the preferred command line tool to access Microsoft
-SQL Server on Windows and Linux platform."
+  `sqlcmd' is the preferred command line tool to access Microsoft
+  SQL Server on Windows and Linux platform."
   (mapconcat
    #'identity
    (delq nil
@@ -208,7 +210,7 @@ SQL Server on Windows and Linux platform."
 
 (defun org-babel-sql-dbstring-sqsh (host user password database)
   "Make sqsh command line args for database connection.
-\"sqsh\" is one method to access Sybase or MS SQL via Linux platform"
+sqsh is one method to access Sybase or MS SQL via Linux platform."
   (mapconcat
    #'identity
    (delq nil
@@ -251,6 +253,7 @@ Pass nil to omit that arg."
 If in Cygwin environment, uses Cygwin specific function to
 convert the file name.  In a Windows-NT environment, do nothing.
 Otherwise, use Emacs's standard conversion function."
+  
   (cond ((fboundp 'cygwin-convert-file-name-to-windows)
          (format "%S" (cygwin-convert-file-name-to-windows file)))
         ((string= "windows-nt" system-type) file)
@@ -263,6 +266,7 @@ then look for the parameter into the corresponding connection
 defined in `sql-connection-alist', otherwise look into PARAMS.
 See `sql-connection-alist' (part of SQL mode) for how to define
 database connections."
+
   (or (cdr (assq name params))
       (and (assq :dbconnection params)
            (let* ((dbconnection (cdr (assq :dbconnection params)))
@@ -279,15 +283,16 @@ database connections."
 (defun org-babel-execute:sql (body params)
   "Execute a block of Sql code with Babel.
 This function is called by `org-babel-execute-src-block'."
+  
   (let* ((result-params (cdr (assq :result-params params)))
          (engine (cdr (assq :engine params)))
          (in-engine  (intern (or engine (user-error "Missing :engine"))))
-         (dbhost (org-babel-find-db-connection-param params :dbhost))
-         (dbport (org-babel-find-db-connection-param params :dbport))
-         (dbuser (org-babel-find-db-connection-param params :dbuser))
+         (dbhost     (org-babel-find-db-connection-param params :dbhost))
+         (dbport     (org-babel-find-db-connection-param params :dbport))
+         (dbuser     (org-babel-find-db-connection-param params :dbuser))
          (dbpassword (org-babel-find-db-connection-param params :dbpassword))
+         (database   (org-babel-find-db-connection-param params :database))
          (dbinstance (org-babel-find-db-connection-param params :dbinstance))
-         (database (org-babel-find-db-connection-param params :database))
          (colnames-p (not (equal "no" (cdr (assq :colnames params)))))
          (in-file (org-babel-temp-file "sql-in-"))
          (out-file (or (cdr (assq :out-file params))
@@ -299,7 +304,8 @@ This function is called by `org-babel-execute-src-block'."
     (setq org-babel-sql-out-file out-file)
 
     (if (or session-p org-babel-sql-run-comint-p)
-        (let ((sql--buffer (org-babel-sql-session-connect in-engine params session)))
+        (let ((sql--buffer
+               (org-babel-sql-session-connect in-engine params session)))
           ;; run through comint
           (sql-set-product in-engine)
           (org-babel-expand-body:sql body params)
@@ -309,14 +315,13 @@ This function is called by `org-babel-execute-src-block'."
 
           (with-current-buffer (get-buffer sql--buffer)
             (process-send-string (current-buffer)
-                                 (ob-sql-format-query body))
+                                 (ob-sql-session-format-query body))
             ;; todo: check org-babel-comint-async-register
             (while (not ob-sql-session-command-terminated)
               ;; could there be a race condition here as described in (elisp) Accepting Output?
               (sleep-for 0.03))
             ;; command finished, remove filter
             (set-process-filter (get-buffer-process sql--buffer) nil)
-
 
             (when (not session-p)
               (comint-quit-subjob)
@@ -329,7 +334,7 @@ This function is called by `org-babel-execute-src-block'."
             (goto-char (point-min))
             ;; clear the output or prompt and termination
             (while (re-search-forward
-                    (sql-get-product-feature in-engine :ob-sql-session-clear-output)
+                    (sql-get-product-feature in-engine :ob-sql-session-clean-output)
                     nil t)
               (replace-match ""))
             (write-file out-file)))
@@ -472,11 +477,12 @@ SET COLSEP '|'
 
         (when session-p
           (goto-char (point-min))
-          ;; clear the output or prompt and termination
+          ;; clear the output of prompt and termination
           (while (re-search-forward
                   (sql-get-product-feature in-engine :ob-sql-session-clean-output)
                   nil t)
             (replace-match "")))
+
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
         (org-babel-reassemble-table
          (mapcar (lambda (x)
@@ -496,6 +502,7 @@ If SQLITE has been provided, prevent passing a format to
 `orgtbl-to-csv'.  This prevents overriding the default format, which if
 there were commas in the context of the table broke the table as an
 argument mechanism."
+
   (mapc
    (lambda (pair)
      (setq body
@@ -519,7 +526,7 @@ argument mechanism."
 
 (defun org-babel-prep-session:sql (_session _params)
   "Raise an error because Sql sessions aren't implemented."
-  (error "SQL sessions not yet implemented"))
+  (message "org-babel-prep-session"))
 
 
 (defun ob-sql-session-buffer-live-p (buffer)
@@ -530,6 +537,7 @@ is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
 object or a buffer name.  The buffer must be a live buffer, have a
 running process attached to it, and, if PRODUCT or CONNECTION are
 specified, its `sql-product' or `sql-connection' must match."
+
   (let ((buffer (get-buffer buffer)))
     (and buffer
          (buffer-live-p buffer)
@@ -571,7 +579,6 @@ no longer needed while the session stays open."
     ;; to sql-interactive  at
     ;; (if (sql-buffer-live-p ob-sql-buffer)
     ;; so put sql-buffer-live-p aside
-
     (if (ob-sql-session-buffer-live-p ob-sql-buffer)
         (progn
           ;; set again the filter
@@ -594,10 +601,8 @@ no longer needed while the session stays open."
         ;; so if quiet mode is off and the connexion takes time
         ;; then the welcoming message may show up
 
-        ;; (set-process-filter sql-term-proc
-        ;;                     #'ob-sql-session-comint-connect-filter)
         ;;(while (not ob-sql-session-connected))
-        (sleep-for 0.06)
+        (sleep-for 0.10)
         (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
         ;; set the redirection filter
         (set-process-filter sql-term-proc
@@ -668,7 +673,6 @@ should also be prompted."
           (when previous-session
             (with-current-buffer
                 previous-session (erase-buffer))))
-
         (setq
          sqli-buffer
          (let ((process-environment (copy-sequence process-environment))
@@ -680,13 +684,8 @@ should also be prompted."
                     engine
                     (sql-get-product-feature engine :sqli-options)
                     (format "SQL: %s" sql-cnx))))
-        ;; no need for a numbered buffer:
-        ;; connexion is closed, buffer killed when there's no session
-        ;; engine/user/db/session points to the same buffer otherwise
-        ;; [2024-06-24 lun.] actually we will need this,
-        ;; since the buffer naming changed
 
-        (setq-local sql-buffer (buffer-name sqli-buffer))
+        (setq sql-buffer (buffer-name sqli-buffer))
 
         (with-current-buffer sql-buffer
           (let ((proc (get-buffer-process sqli-buffer))
@@ -711,13 +710,14 @@ should also be prompted."
       (get-buffer sqli-buffer))))
 
 
-(defun ob-sql-format-query (str)
+(defun ob-sql-session-format-query (str)
   "Process then send the command STR to the SQL process.
 Provide ENGINE to retrieve product features.
 Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
+
   ;;(setq sql-product engine)
   (concat
    (let ((commands (split-string str "\n"))
