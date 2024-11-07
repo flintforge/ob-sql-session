@@ -101,6 +101,12 @@
   :group 'org-babel-sql
   :safe t)
 
+(defcustom org-babel-sql-timeout '5.0
+  "Abort on timeout"
+  :type '(number)
+  :group 'org-babel-sql
+  :safe t)
+
 
 (defconst org-babel-header-args:sql
   '((engine      . :any)
@@ -115,6 +121,8 @@
 
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
+(defvar org-babel-sql-out-file)
+(defvar org-babel-sql-session-start-time)
 
 
 (defun org-babel-expand-body:sql (body params)
@@ -130,7 +138,7 @@
                "\n")))
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-(sql-get-product-feature 'postgres :prompt-regexp )
+;;(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
@@ -297,20 +305,24 @@ This function is called by `org-babel-execute-src-block'."
          (in-file (org-babel-temp-file "sql-in-"))
          (out-file (or (cdr (assq :out-file params))
                        (org-babel-temp-file "sql-out-")))
-         (header-delim "")
+         ;;(session (or (cdr (assoc :session params)) (user-error "missing :session name")))
          (session (cdr (assoc :session params)))
-         (session-p (not (string= session "none"))))
+         (session-p (not (string= session "none")))
+         (header-delim ""))
 
+
+    (message "e %s %s " engine in-engine)
+    (org-babel-expand-body:sql body params)
     (setq org-babel-sql-out-file out-file)
-
+    (sql-set-product in-engine)
     (if (or session-p org-babel-sql-run-comint-p)
+        ;; run through comint
         (let ((sql--buffer
                (org-babel-sql-session-connect in-engine params session)))
-          ;; run through comint
-          (sql-set-product in-engine)
-          (org-babel-expand-body:sql body params)
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (erase-buffer))
+          (setq org-babel-sql-session-start-time (current-time))
+          (message "current-t %s"  org-babel-sql-session-start-time)
           (setq ob-sql-session-command-terminated nil)
 
           (with-current-buffer (get-buffer sql--buffer)
@@ -438,11 +450,11 @@ SET COLSEP '|'
 ")
                (`vertica "\\a\n")
                (_ ""))
-             (org-babel-expand-body:sql body params)
              ;; "sqsh" requires "go" inserted at EOF.
              (if (string= engine "sqsh") "\ngo" "")))
           (org-babel-eval command ""))))
 
+    
     ;; collect results
     (org-babel-result-cond result-params
       (with-temp-buffer
@@ -473,7 +485,8 @@ SET COLSEP '|'
               (delete-char 1)
               (goto-char (point-max))
               (forward-char -1))
-            (write-file out-file))))
+            (write-file out-file)
+            )))
 
         (when session-p
           (goto-char (point-min))
@@ -482,7 +495,7 @@ SET COLSEP '|'
                   (sql-get-product-feature in-engine :ob-sql-session-clean-output)
                   nil t)
             (replace-match "")))
-
+        
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
         (org-babel-reassemble-table
          (mapcar (lambda (x)
@@ -602,7 +615,7 @@ no longer needed while the session stays open."
         ;; then the welcoming message may show up
 
         ;;(while (not ob-sql-session-connected))
-        (sleep-for 0.10)
+        ;;(sleep-for 0.10)
         (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
         ;; set the redirection filter
         (set-process-filter sql-term-proc
@@ -746,10 +759,14 @@ its message buffer"
   ;; the ouput gets passed as input onto the next command
   ;; line; See `comint-redirect-setup' to possibly fix that
   ;; (with-current-buffer (process-buffer proc) (insert output))
-
-  (when (string-match ob-sql-session--batch-end-indicator string)
+  
+  (when (or (string-match ob-sql-session--batch-end-indicator string)
+            (> (time-to-seconds
+                (time-subtract (current-time)
+                               org-babel-sql-session-start-time))
+               org-babel-sql-timeout))
     (setq ob-sql-session-command-terminated t))
-
+  
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
     (insert string)))
 
