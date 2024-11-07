@@ -84,9 +84,6 @@
 (declare-function cygwin-convert-file-name-to-windows "cygw32.c" (file &optional absolute-p))
 (declare-function sql-set-product "sql" (product))
 
-(defvar sql-connection-alist)
-(defvar org-babel-sql-out-file)
-
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
   "Default header args."
   :type '(alist :key-type symbol :value-type string
