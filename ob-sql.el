@@ -82,8 +82,6 @@
 (defvar org-babel-sql-session-start-time)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
