@@ -628,7 +628,7 @@ should also be prompted."
   (when (sql-get-product-feature sql-product :sqli-comint-func)
     ;; If no new name specified or new name in buffer name,
     ;; try to pop to an active SQL interactive for the same engine
-    (let ((buf (sql-find-sqli-buffer sql-product sql-connection)) ; unused yet
+    (let (;(buf (sql-find-sqli-buffer sql-product sql-connection)) ; unused yet
           (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
           (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
           sqli-buffer rpt)
