@@ -17,7 +17,6 @@
                      `(,(expand-file-name sql-database))))))
     (sql-comint product params buf-name)))
 
-
 (defun results-block-contents (&optional position)
   "Return the contents of the *only* results block in the buffer.
 Assume the source block is at POSITION if non-nil."
@@ -114,8 +113,6 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-
-
 (ert-deftest sqllite-005a:test-multiple-commands ()
 	"Copy pasting this in sqlite3 will give the same result."
   :expected-result :failed
@@ -129,7 +126,6 @@ select 1;
 "
    "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
    )) ;; variations expected between sqlite versions
-
 
 (ert-deftest sqllite-005a:test-commands ()
   (sqlite-test

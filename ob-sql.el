@@ -73,8 +73,6 @@
 ;;; Code:
 
 (require 'org-macs)
-(org-assert-version)
-
 (require 'ob)
 (require 'sql)
 
