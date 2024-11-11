@@ -2,7 +2,7 @@
 
 ;;; Code:
 
-(load-file "./ob-sql-session.el")
+(load-file "./ob-sql.el")
 
 ;; redefine (or patch...)
 (defun sql-comint-sqlite (product &optional options buf-name)
@@ -48,9 +48,9 @@ Assume the source block is at POSITION if non-nil."
          (lambda (&rest _) t))
         (org-confirm-babel-evaluate
          (lambda (lang body)
-           (not (string= lang "sql-session"))))
-        )
-    (funcall body)))
+           (not (or (string= lang "sql")
+										(string= lang "sql-session"))))))
+		(funcall body)))
 
 
 (defun babel-block-test (setup header code expect &optional expected-result)
@@ -61,16 +61,17 @@ Assume the source block is at POSITION if non-nil."
 #+begin_src %s
 %s
 #+end_src" header code)))
-       (with-buffer-contents buffer-contents
-                             (org-mode)
-                             (org-babel-next-src-block)
-                             (org-babel-execute-src-block)
-                             (should (string= expect (results-block-contents)))
-                             )))))
+       (with-buffer-contents
+				buffer-contents
+        (org-mode)
+        (org-babel-next-src-block)
+        (org-babel-execute-src-block)
+        (should (string= expect (results-block-contents)))
+        )))))
 
 (defun sqlite-test (code expect &optional expected-result)
   (babel-block-test #'setup
-                    "sql-session :engine sqlite :session Tests"
+                    "sql :engine sqlite :session Tests :results raw"
                     code expect))
 
 (ert-deftest sqllite-000:test-header ()
@@ -91,7 +92,7 @@ create table test(one varchar(10), two int);" nil))
 (ert-deftest sqllite-003:test-select ()
   "Select from table."
   (sqlite-test "select * from test;"
-               "hello|world"))
+               "hello|world\n"))
 
 (ert-deftest sqllite-004:test-filter-tabs ()
   "Insert with tabs."
@@ -100,7 +101,7 @@ create table test(one varchar(10), two int);" nil))
         select * from test;
 
 "
-               "hello|world"))
+               "hello|world\n"))
 
 ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
@@ -146,7 +147,8 @@ select 1;
 
    "one|two
 sqlite|3.4
-1|2"))
+1|2
+"))
 
 ;; additionally, an error after a command can clutter the next shell
 ;;

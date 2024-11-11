@@ -25,7 +25,7 @@
 ;;; Commentary:
 
 ;; Org-Babel support for evaluating SQL through a terminal interpreter.
-;;
+
 ;; This replace the previous proposed communication channel set with
 ;; the comint sql interpreter using `accept-process-output' by a
 ;; comint output filter through `set-process-filter'.
@@ -68,8 +68,8 @@
   '((:engine . "sqlite"))
   "Default header args."
   :type '(alist :key-type symbol :value-type string
-                :options ("sqlite" "mysql" "postgres"))
-  :group 'org-babel-sql
+                ) ;adding an :options as described in (elisp) Composite Types is useful!
+  :group 'org-babel                     ;perhaps create a new sub-group?
   :safe t)
 
 (defconst org-babel-header-args:sql-session
@@ -90,15 +90,17 @@
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 
-;; (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-;; (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
-(sql-set-product-feature 'postgres :terminal-command "\\\\")
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'postgres :terminal-command "\\\\")
+
 (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'sqlite :terminal-command "\\.")
 
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
@@ -112,15 +114,16 @@
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY with PARAMS."
-  (let* (;;(processed-params (org-babel-process-params params))
-         (session (cdr (assoc :session params)))
-         (engine  (cdr (assoc :engine params)))
+  (let* ((processed-params (org-babel-process-params params))
+         (session (cdr (assoc :session processed-params)))
+         (engine  (cdr (assoc :engine processed-params)))
          (engine  (intern (or engine (user-error "Missing :engine"))))
          (vars (org-babel--get-vars params))
-         (results (cdr (assq :result-params params)))
+         (results (split-string (cdr (assq :results processed-params ))))
          (session-p (not (string= session "none")))
+
          (sql--buffer (org-babel-sql-session-connect
-                       engine params session)))
+                       engine processed-params session)))
 
     (setq sql-product engine)
     ;; Substitute $vars in body with the associated value. (See also s-format).
@@ -131,7 +134,6 @@
       (erase-buffer))
     (setq ob-sql-session-command-terminated nil)
     (with-current-buffer (get-buffer sql--buffer)
-      (message "%s" (ob-sql-format-query body engine)) ; debug reformatted commands
       (process-send-string (current-buffer) (ob-sql-format-query body engine))
       ;; todo: check org-babel-comint-async-register
       (while (not ob-sql-session-command-terminated)
@@ -150,9 +152,8 @@
     (with-current-buffer (get-buffer-create "*ob-sql-result*")
       (goto-char (point-min))
       ;; clear the output or prompt and termination
-      (while (re-search-forward
-              (sql-get-product-feature engine :ob-sql-session-clean-output)
-              nil t)
+      (while (re-search-forward (sql-get-product-feature engine :ob-sql-session-clear-output)
+                                nil t)
         (replace-match ""))
 
       ;; some client can also directly format to tables
@@ -188,7 +189,7 @@ specified, its `sql-product' or `sql-connection' must match."
 
 
 (defun org-babel-sql-session-connect (engine params session)
-  "Start the SQL client of ENGINE if it has not.
+  "Start the SQL client of ENGINE if it has not in a buffer.
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
@@ -282,7 +283,7 @@ should also be prompted."
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature
-       engine :ob-sql-session-clean-output
+       engine :ob-sql-session-clear-output
        (concat "\\(" prompt-regexp "\\)"
                "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
                (when prompt-cont-regexp
@@ -373,16 +374,17 @@ Finnally add the termination command."
   (concat
    (let ((commands (split-string str "\n"))
          (terminal-command
-          (concat "^\s*"
-                  (sql-get-product-feature sql-product :terminal-command))))
+          (concat
+           "^\s*"
+           (sql-get-product-feature sql-product :terminal-command))))
      (mapconcat
       (lambda(s)
-        (when (not
-               (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
-          (concat (replace-regexp-in-string
-                   "[\t]" "" ; filter tabs
-                   (replace-regexp-in-string "--.*" "" s)) ;; remove comments
-                  (when (string-match terminal-command s) "\n"))))
+        (when (not (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
+          (concat
+           (replace-regexp-in-string
+            "[\t]" "" ; filter tabs
+            (replace-regexp-in-string "--.*" "" s)) ;; remove comments
+           (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
    ";\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
 
@@ -400,7 +402,6 @@ its message buffer"
 
   (when (string-match ob-sql-session--batch-end-indicator string)
     (setq ob-sql-session-command-terminated t))
-
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
     (insert string)))
 

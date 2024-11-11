@@ -78,6 +78,23 @@
 (require 'ob)
 (require 'sql)
 
+(defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
+(defvar ob-sql-session-command-terminated nil)
+(defvar org-babel-sql-out-file)
+(defvar org-babel-sql-session-start-time)
+
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+(sql-set-product-feature 'postgres :batch-terminate
+                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'postgres :terminal-command "\\\\")
+
+(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+(sql-set-product-feature 'sqlite :batch-terminate
+                         (format ".print %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'sqlite :terminal-command "\\.")
+
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
 (declare-function org-table-to-lisp "org-table" (&optional txt))
@@ -104,7 +121,6 @@
   :group 'org-babel-sql
   :safe t)
 
-
 (defconst org-babel-header-args:sql
   '((engine      . :any)
     (dbhost      . :any)
@@ -115,41 +131,6 @@
     (out-file    . :any)
     (dbinstance  . :any))
   "HEADER arguments accepted.")
-
-(defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
-(defvar ob-sql-session-command-terminated nil)
-(defvar org-babel-sql-out-file)
-(defvar org-babel-sql-session-start-time)
-
-
-(defun org-babel-expand-body:sql (body params)
-  "Expand BODY according to the values of PARAMS."
-  (let ((prologue (cdr (assq :prologue params)))
-        (epilogue (cdr (assq :epilogue params))))
-    (mapconcat 'identity
-               (list
-                prologue
-                (org-babel-sql-expand-vars
-                 body (org-babel--get-vars params))
-                epilogue)
-               "\n")))
-
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-;;(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
-(sql-set-product-feature 'postgres :terminal-command "\\\\")
-(sql-set-product-feature 'postgres :batch-terminate
-                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
-(sql-set-product-feature 'sqlite :batch-terminate
-                         (format ".print %s\n" ob-sql-session--batch-end-indicator))
-
-(defun org-babel-edit-prep:sql (info)
-  "Prepare Org-edit buffer.
-Set `sql-product' in Org edit buffer according to
-the :engine header argument provided in INFO."
-  (let ((product (cdr (assq :engine (nth 2 info)))))
-    (sql-set-product product)))
 
 (defun org-babel-sql-dbstring-mysql (host port user password database)
   "Make MySQL command line arguments for database connection.
@@ -302,13 +283,10 @@ This function is called by `org-babel-execute-src-block'."
          (in-file (org-babel-temp-file "sql-in-"))
          (out-file (or (cdr (assq :out-file params))
                        (org-babel-temp-file "sql-out-")))
-         ;;(session (or (cdr (assoc :session params)) (user-error "missing :session name")))
          (session (cdr (assoc :session params)))
          (session-p (not (string= session "none")))
          (header-delim ""))
 
-
-    (message "e %s %s " engine in-engine)
     (org-babel-expand-body:sql body params)
     (setq org-babel-sql-out-file out-file)
     (sql-set-product in-engine)
@@ -319,7 +297,6 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (erase-buffer))
           (setq org-babel-sql-session-start-time (current-time))
-          (message "current-t %s"  org-babel-sql-session-start-time)
           (setq ob-sql-session-command-terminated nil)
 
           (with-current-buffer (get-buffer sql--buffer)
@@ -505,6 +482,25 @@ SET COLSEP '|'
          (org-babel-pick-name (cdr (assq :rowname-names params))
                               (cdr (assq :rownames params))))))))
 
+(defun org-babel-edit-prep:sql (info)
+  "Prepare Org-edit buffer.
+Set `sql-product' in Org edit buffer according to
+the :engine header argument provided in INFO."
+  (let ((product (cdr (assq :engine (nth 2 info)))))
+    (sql-set-product product)))
+
+(defun org-babel-expand-body:sql (body params)
+  "Expand BODY according to the values of PARAMS."
+  (let ((prologue (cdr (assq :prologue params)))
+        (epilogue (cdr (assq :epilogue params))))
+    (mapconcat 'identity
+               (list
+                prologue
+                (org-babel-sql-expand-vars
+                 body (org-babel--get-vars params))
+                epilogue)
+               "\n")))
+
 (defun org-babel-sql-expand-vars (body vars &optional sqlite)
   "Expand the variables held in VARS in BODY.
 
@@ -538,7 +534,6 @@ argument mechanism."
   "Raise an error because Sql sessions aren't implemented."
   (message "org-babel-prep-session"))
 
-
 (defun ob-sql-session-buffer-live-p (buffer)
   "Return non-nil if the process associated with buffer is live.
 
@@ -553,7 +548,6 @@ specified, its `sql-product' or `sql-connection' must match."
          (buffer-live-p buffer)
          (let ((proc (get-buffer-process buffer)))
            (and proc (memq (process-status proc) '(open run)))))))
-
 
 (defun org-babel-sql-session-connect (engine params session)
   "Start the SQL client of ENGINE if it has not.
@@ -619,7 +613,6 @@ no longer needed while the session stays open."
                             #'ob-sql-session-comint-output-filter)
         ;; return that buffer
         (get-buffer ob-sql-buffer)))))
-
 
 (defun ob-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
@@ -719,7 +712,6 @@ should also be prompted."
       (sql-progress-reporter-done rpt)
       (get-buffer sqli-buffer))))
 
-
 (defun ob-sql-session-format-query (str)
   "Process then send the command STR to the SQL process.
 Provide ENGINE to retrieve product features.
@@ -751,10 +743,10 @@ Finnally add the termination command."
 It is called several times consecutively as the shell outputs and flush
 its message buffer"
 
-  ;; Inserting the result in the sql process buffer
-  ;; adds it to the terminal prompt and as a result
-  ;; the ouput gets passed as input onto the next command
-  ;; line; See `comint-redirect-setup' to possibly fix that
+  ;; Inserting a result in the sql process buffer (to read it as a
+  ;; regular prompt log) inserts it to the terminal, and as a result the
+  ;; ouput would get passed as input onto the next command line; See
+  ;; `comint-redirect-setup' to possibly fix that,
   ;; (with-current-buffer (process-buffer proc) (insert output))
   
   (when (or (string-match ob-sql-session--batch-end-indicator string)
@@ -766,7 +758,6 @@ its message buffer"
   
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
     (insert string)))
-
 
 (provide 'ob-sql)
 
