@@ -159,17 +159,35 @@ sqlite|3.4
       (kill-this-buffer))))
 
 (defun pg-test (code expect &optional expected-result)
+  " can't connect to outside db from github for good reasons"
   (babel-block-test
    #'setup
-   "sql :session PG::tests :engine postgres :dbhost hh-pgsql-public.ebi.ac.uk :database pfmegrnargs :dbuser reader :dbpassword NWDMCE5xdipIjRrp :results raw"
+   ;; "sql :session PG::tests :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
+   "sql :session PG::tests :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
+   ;; "sql :session PG::tests :engine postgres :dbhost hh-pgsql-public.ebi.ac.uk :database pfmegrnargs :dbuser reader :dbpassword NWDMCE5xdipIjRrp :results raw"
    code expect))
 
 (ert-deftest pg-000:test-session-var ()
   "Select in a table."
-  (pg-test "\\set id10 10
-\\set id13 13;" nil))
+  (pg-test "\\set id10 10 \n \\set id13 13" nil))
 
-(ert-deftest pg-000:test-session-query ()
+(ert-deftest pg-001:test-session-var-read ()
+  "Select in a table."
+  (pg-test "select :id10 as A,:id13 as B;" "a|b\n10|13\n"))
+
+(ert-deftest pg-002:test-session-drop ()
+  "insert in a table."
+  (pg-test "DROP TABLE IF EXISTS publications;" "DROP TABLE\n"))
+
+(ert-deftest pg-003:test-session-test-create-table ()
+  "insert in a table."
+  (pg-test "CREATE TABLE publications (id int2, database text);" "CREATE TABLE\n"))
+
+(ert-deftest pg-004:test-session-insert ()
+  "insert in a table."
+  (pg-test "insert into publications values (:id10, 'HGNC'), (:id13, 'FlyBase');" "INSERT 0 2\n"))
+
+(ert-deftest pg-005:test-session-query ()
   "Select in a table."
   (pg-test "SELECT database from publications where id=:id10 or id=:id13;"
            "database\nHGNC\nFlyBase\n"))

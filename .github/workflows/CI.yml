@@ -8,7 +8,23 @@ on:
       - '**.yaml'
     branches:
       - main
-      
+
+services:
+  postgres:
+    image: postgres:latest
+    env:
+      POSTGRES_DB: pg
+      POSTGRES_PASSWORD: pg
+      POSTGRES_USER: pg
+    ports:
+      - 5432:5432
+    # Set health checks to wait until postgres has started
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 10s
+      --health-timeout 5s
+      --health-retries 5
+
 jobs:
   test-builtin:
     runs-on: ubuntu-latest
@@ -28,8 +44,8 @@ jobs:
     - uses: purcell/setup-emacs@master
       with:
         version: ${{ matrix.emacs_version }}
+
     - uses: leotaku/elisp-check@master
       with:
         check: ert
         file: ob-sql-session-tests.el
-        
