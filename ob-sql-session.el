@@ -91,17 +91,9 @@
 (defvar ob-sql-session-command-terminated nil)
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
-
-(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-(sql-set-product-feature 'sqlite :batch-terminate
-                         (format ".print %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
-
 (setq sql-postgres-options (list
                             "--set=ON_ERROR_STOP=1"
                             (concat "--set=PROMPT1="
@@ -111,6 +103,11 @@
                             "-P" "pager=off"
                             "-P" "footer=off"
                             "-A" ))
+
+(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
+(sql-set-product-feature 'sqlite :batch-terminate
+                         (format ".print %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'sqlite :terminal-command "\\.")
 
 (defun org-babel-execute:sql-session (body params)
   "Execute SQL statements in BODY with PARAMS."

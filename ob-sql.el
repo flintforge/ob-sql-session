@@ -81,15 +81,22 @@
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-(sql-set-product-feature 'postgres :batch-terminate
-                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'postgres :terminal-command "\\\\")
-
 (sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
 (sql-set-product-feature 'sqlite :batch-terminate
                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'sqlite :terminal-command "\\.")
+
+(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+(sql-set-product-feature 'postgres :batch-terminate
+                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+(sql-set-product-feature 'postgres :terminal-command "\\\\")
+(setq sql-postgres-options
+			(list "--set=ON_ERROR_STOP=1"
+						(format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
+						(format	"--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+						"-P" "pager=off"
+						"-P" "footer=off"
+						"-A" ))
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
