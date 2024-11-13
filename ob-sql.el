@@ -90,13 +90,14 @@
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
+
 (setq sql-postgres-options
-			(list "--set=ON_ERROR_STOP=1"
-						(format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
-						(format	"--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-						"-P" "pager=off"
-						"-P" "footer=off"
-						"-A" ))
+      (list "--set=ON_ERROR_STOP=1"
+            (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
+            (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+            "-P" "pager=off"
+            "-P" "footer=off"
+            "-A" ))
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -164,16 +165,9 @@ Pass nil to omit that arg."
   "Make Oracle command line arguments for database connection.
 If HOST and PORT are nil then don't pass them.  This allows you
 to use names defined in your \"TNSNAMES\" file.  So you can
-connect with
+connect with <USER>/<PASSWORD>@<HOST>:<PORT>/<DATABASE>
+or <user>/<password>@<database> using its alias."
 
-<user>/<password>@<host>:<port>/<database>
-
-or
-
-<user>/<password>@<database>
-
-using its alias."
-  
   (when user (setq user (shell-quote-argument user)))
   (when password (setq password (shell-quote-argument password)))
   (when database (setq database (shell-quote-argument database)))
@@ -186,8 +180,8 @@ using its alias."
 
 (defun org-babel-sql-dbstring-mssql (host user password database)
   "Make sqlcmd command line args for database connection.
-  `sqlcmd' is the preferred command line tool to access Microsoft
-  SQL Server on Windows and Linux platform."
+`sqlcmd' is the preferred command line tool to access Microsoft
+SQL Server on Windows and Linux platform."
   (mapconcat
    #'identity
    (delq nil
@@ -242,7 +236,7 @@ Pass nil to omit that arg."
 If in Cygwin environment, uses Cygwin specific function to
 convert the file name.  In a Windows-NT environment, do nothing.
 Otherwise, use Emacs's standard conversion function."
-  
+
   (cond ((fboundp 'cygwin-convert-file-name-to-windows)
          (format "%S" (cygwin-convert-file-name-to-windows file)))
         ((string= "windows-nt" system-type) file)
@@ -272,7 +266,7 @@ database connections."
 (defun org-babel-execute:sql (body params)
   "Execute a block of Sql code with Babel.
 This function is called by `org-babel-execute-src-block'."
-  
+
   (let* ((result-params (cdr (assq :result-params params)))
          (engine (cdr (assq :engine params)))
          (in-engine  (intern (or engine (user-error "Missing :engine"))))
@@ -431,7 +425,7 @@ SET COLSEP '|'
              (if (string= engine "sqsh") "\ngo" "")))
           (org-babel-eval command ""))))
 
-    
+
     ;; collect results
     (org-babel-result-cond result-params
       (with-temp-buffer
@@ -472,7 +466,7 @@ SET COLSEP '|'
                   (sql-get-product-feature in-engine :ob-sql-session-clean-output)
                   nil t)
             (replace-match "")))
-        
+
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
         (org-babel-reassemble-table
          (mapcar (lambda (x)
@@ -537,6 +531,9 @@ argument mechanism."
   "Raise an error because Sql sessions aren't implemented."
   (message "org-babel-prep-session"))
 
+(defun org-babel-load-session:sql (session body params)
+  (message "load session %s" session))
+
 (defun ob-sql-session-buffer-live-p (buffer)
   "Return non-nil if the process associated with buffer is live.
 
@@ -566,21 +563,21 @@ to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
 
-  (let* ((sql-database  (cdr (assoc :database params)))
-         (sql-user      (cdr (assoc :dbuser params)))
-         (sql-password  (cdr (assoc :dbpassword params)))
-         (sql-server    (cdr (assoc :dbhost params)))
-         ;; (sql-port (cdr (assoc :port params))) ;; to concat to the server
-         (buffer-name (format "%s" (if (string= session "none") ""
-                                     (format "[%s]" session))))
-         ;; (buffer-name (format "%s%s://%s%s/%s"
-         ;;                      (if (string= session "none") ""
-         ;;                        (format "[%s] " session))
-         ;;                      engine
-         ;;                      (if sql-user (concat sql-user "@") "")
-         ;;                      (if sql-server (concat sql-server ":") "")
-         ;;                      sql-database))
-         (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
+  (let* ( (sql-server    (cdr (assoc :dbhost params)))
+          ;; (sql-port      (cdr (assoc :port params)))
+          (sql-database  (cdr (assoc :database params)))
+          (sql-user      (cdr (assoc :dbuser params)))
+          (sql-password  (cdr (assoc :dbpassword params)))
+          (buffer-name (format "%s" (if (string= session "none") ""
+                                      (format "[%s]" session))))
+          ;; (buffer-name (format "%s%s://%s%s/%s"
+          ;;                      (if (string= session "none") ""
+          ;;                        (format "[%s] " session))
+          ;;                      engine
+          ;;                      (if sql-user (concat sql-user "@") "")
+          ;;                      (if sql-server (concat sql-server ":") "")
+          ;;                      sql-database))
+          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     ;; I get a nil on sql-for-each-login on the first call
     ;; to sql-interactive  at
@@ -751,14 +748,14 @@ its message buffer"
   ;; ouput would get passed as input onto the next command line; See
   ;; `comint-redirect-setup' to possibly fix that,
   ;; (with-current-buffer (process-buffer proc) (insert output))
-  
+
   (when (or (string-match ob-sql-session--batch-end-indicator string)
             (> (time-to-seconds
                 (time-subtract (current-time)
                                org-babel-sql-session-start-time))
                org-babel-sql-timeout))
     (setq ob-sql-session-command-terminated t))
-  
+
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
     (insert string)))
 

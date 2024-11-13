@@ -48,8 +48,8 @@ Assume the source block is at POSITION if non-nil."
         (org-confirm-babel-evaluate
          (lambda (lang body)
            (not (or (string= lang "sql")
-										(string= lang "sql-session"))))))
-		(funcall body)))
+                    (string= lang "sql-session"))))))
+    (funcall body)))
 
 
 (defun babel-block-test (setup header code expect &optional expected-result)
@@ -61,7 +61,7 @@ Assume the source block is at POSITION if non-nil."
 %s
 #+end_src" header code)))
        (with-buffer-contents
-				buffer-contents
+        buffer-contents
         (org-mode)
         (org-babel-next-src-block)
         (org-babel-execute-src-block)
@@ -114,7 +114,7 @@ create table test(one varchar(10), two int);" nil))
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
 (ert-deftest sqllite-005a:test-multiple-commands ()
-	"Copy pasting this in sqlite3 will give the same result."
+  "Copy pasting this in sqlite3 will give the same result."
   :expected-result :failed
   (sqlite-test
    "
@@ -158,9 +158,26 @@ sqlite|3.4
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
 
+(defun pg-test (code expect &optional expected-result)
+  (babel-block-test
+   #'setup
+   "sql :session PG::tests :engine postgres :dbhost hh-pgsql-public.ebi.ac.uk :database pfmegrnargs :dbuser reader :dbpassword NWDMCE5xdipIjRrp :results raw"
+   code expect))
+
+(ert-deftest pg-000:test-session-var ()
+  "Select in a table."
+  (pg-test "\\set id10 10
+\\set id13 13;" nil))
+
+(ert-deftest pg-000:test-session-query ()
+  "Select in a table."
+  (pg-test "SELECT database from publications where id=:id10 or id=:id13;"
+           "database\nHGNC\nFlyBase\n"))
+
+
 ;; (eval-buffer)
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
-;; (with-current-buffer "ob-sql-session.el" (save-buffer))
+;; (with-current-buffer "ob-sql.el" (save-buffer))
 ;; (progn (ert-delete-all-tests)(eval-buffer)(ert :new))
