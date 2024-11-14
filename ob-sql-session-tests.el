@@ -159,12 +159,9 @@ sqlite|3.4
       (kill-this-buffer))))
 
 (defun pg-test (code expect &optional expected-result)
-  " can't connect to outside db from github for good reasons"
   (babel-block-test
    #'setup
-   ;; "sql :session PG::tests :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
    "sql :session PG::tests :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
-   ;; "sql :session PG::tests :engine postgres :dbhost hh-pgsql-public.ebi.ac.uk :database pfmegrnargs :dbuser reader :dbpassword NWDMCE5xdipIjRrp :results raw"
    code expect))
 
 (ert-deftest pg-000:test-session-var ()
