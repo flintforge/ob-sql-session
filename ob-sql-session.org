@@ -103,7 +103,7 @@ Which brings several remarks:
   necessary as long as comint can tell where last
   output began.
 
-- Finally what happen if we rely only on the prompt to
+- What happen if we rely only on the prompt to
   detect a command termination but for batches of
   commands with buffered output and a prompt showing up
   on each command? Then there's no way to detect when a
@@ -131,14 +131,22 @@ batch:
    command for instance, that stays in the client,
    and not given to the db.
 
-   Opted for solution 2)
+   Here we opted for solution 2).
+
+   One drawback is that some client will report an
+   error as related to the entire block of
+   commands, and not narrowed to a given line.
+   For such a case, where spotting precisely where
+   an error occurs, it's always possible to switch
+   into the interactive buffer and provide the
+   command one line at a time.
 
 The following is reported to work on emacs 27 to 30,
 org-mode 9.6 and 9.7
 
 DB tested:
-- Postgres
 - Sqlite
+- Postgres
 
 ** Comparison with the build-in ob-sql
 
