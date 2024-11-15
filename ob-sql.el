@@ -666,7 +666,6 @@ should also be prompted."
 
         ;; The password wallet returns a function
         ;; which supplies the password. (untested)
-        (message "sqlp ? %s" sql-password)
         (when (functionp sql-password)
           (setq sql-password (funcall sql-password)))
 
@@ -703,6 +702,7 @@ should also be prompted."
                         (progn (goto-char (point-max))
                                (not (re-search-backward
                                      prompt-regexp 0 t))))
+              (message ">> %s" secs)
               (sql-progress-reporter-update rpt)))
 
           ;; no prompt, connexion failed (and process is terminated)
