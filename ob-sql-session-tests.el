@@ -162,15 +162,19 @@ sqlite|3.4
       (kill-this-buffer))))
 
 (defun pg-test (code expect)
+  "Test Postgres SQL CODE, with EXPECT 'ed result."
   (babel-block-test
    #'setup
    "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
    code expect))
 
 (defun pg-test-session (code expect)
+  "Test Postgres SQL CODE, with EXPECT 'ed result."
   (babel-block-test
    #'setup
-   "sql :engine postgres :session pg::tests :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw" code expect))
+   "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw \
+:session pg::tests"
+   code expect))
 
 (ert-deftest pg-001:test-session-var-set ()
   "Select in a table."
