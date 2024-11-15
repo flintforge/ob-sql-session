@@ -52,14 +52,16 @@ Assume the source block is at POSITION if non-nil."
     (funcall body)))
 
 
-(defun babel-block-test (setup header code expect &optional expected-result)
-  "Execute SQL in a `sql-session' Babel block comparing the result against WANT."
+(defun babel-block-test (setup header code expect)
+  "Given SETUP function, execute SQL CODE block with HEADER.
+Compare the result against EXPECT."
   (setup
    (lambda ()
      (let ((buffer-contents (format "
 #+begin_src %s
 %s
 #+end_src" header code)))
+       (message buffer-contents)
        (with-buffer-contents
         buffer-contents
         (org-mode)
@@ -68,10 +70,11 @@ Assume the source block is at POSITION if non-nil."
         (should (string= expect (results-block-contents)))
         )))))
 
-(defun sqlite-test (code expect &optional expected-result)
-  (babel-block-test #'setup
-                    "sql :engine sqlite :session Tests :results raw"
-                    code expect))
+(defun sqlite-test (code expect)
+  "SQL test CODE block, EXPECT 'ing this result."
+  (babel-block-test
+   #'setup "sql :engine sqlite :session sqlite::tests :results raw"
+   code expect))
 
 (ert-deftest sqllite-000:test-header ()
   "Create table."
@@ -158,36 +161,35 @@ sqlite|3.4
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
 
-(defun pg-test (code expect &optional expected-result)
+(defun pg-test (code expect)
   (babel-block-test
    #'setup
-   "sql :session PG::tests :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
+   "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
    code expect))
 
-(ert-deftest pg-000:test-session-var ()
+(defun pg-test-session (code expect)
+  (babel-block-test
+   #'setup
+   "sql :engine postgres :session pg::tests :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw" code expect))
+
+(ert-deftest pg-001:test-session-var-set ()
   "Select in a table."
-  (pg-test "\\set id10 10 \n \\set id13 13" nil))
+  (pg-test-session "\\set id10 10 \n \\set id13 13" nil))
 
-(ert-deftest pg-001:test-session-var-read ()
+(ert-deftest pg-002:test-session-var-read ()
   "Select in a table."
-  (pg-test "select :id10 as A,:id13 as B;" "a|b\n10|13\n"))
+  (pg-test-session "select :id10 as A,:id13 as B;" "a|b\n10|13\n"))
 
-(ert-deftest pg-002:test-session-drop ()
-  "insert in a table."
-  (pg-test "DROP TABLE IF EXISTS publications;" "DROP TABLE\n"))
-
-(ert-deftest pg-003:test-session-test-create-table ()
-  "insert in a table."
-  (pg-test "CREATE TABLE publications (id int2, database text);" "CREATE TABLE\n"))
-
-(ert-deftest pg-004:test-session-insert ()
-  "insert in a table."
-  (pg-test "insert into publications values (:id10, 'HGNC'), (:id13, 'FlyBase');" "INSERT 0 2\n"))
-
-(ert-deftest pg-005:test-session-query ()
+(ert-deftest pg-001:test-create-insert-select ()
   "Select in a table."
-  (pg-test "SELECT database from publications where id=:id10 or id=:id13;"
-           "database\nHGNC\nFlyBase\n"))
+  (pg-test "DROP TABLE if exists publications;
+CREATE TABLE publications (id int2, database text);
+INSERT INTO publications VALUES (10, 'HGNC'), (13, 'FlyBase');
+SELECT database FROM publications where id=10 or id=13;"
+           "DROP TABLE
+CREATE TABLE
+INSERT 0 2
+database\nHGNC\nFlyBase\n"))
 
 
 ;; (eval-buffer)

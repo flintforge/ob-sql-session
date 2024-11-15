@@ -67,8 +67,8 @@
 ;;
 ;; TODO:
 ;; - support for more engines
-;; - what's a reasonable way to drop table data into SQL?
-;;
+;; - provide babel to SQL
+;; - expand body for sessions
 
 ;;; Code:
 
@@ -120,7 +120,7 @@
   :safe t)
 
 (defcustom org-babel-sql-timeout '5.0
-  "Abort on timeout"
+  "Abort on timeout."
   :type '(number)
   :group 'org-babel-sql
   :safe t)
@@ -264,7 +264,7 @@ database connections."
                          (cdr (assoc-string dbconnection sql-connection-alist t))))))))
 
 (defun org-babel-execute:sql (body params)
-  "Execute a block of Sql code with Babel.
+  "Execute a block of SQL code in BODY with PARAMS.
 This function is called by `org-babel-execute-src-block'."
 
   (let* ((result-params (cdr (assq :result-params params)))
@@ -284,9 +284,8 @@ This function is called by `org-babel-execute-src-block'."
          (session-p (not (string= session "none")))
          (header-delim ""))
 
-    (org-babel-expand-body:sql body params)
     (setq org-babel-sql-out-file out-file)
-    (sql-set-product in-engine)
+
     (if (or session-p org-babel-sql-run-comint-p)
         ;; run through comint
         (let ((sql--buffer
@@ -298,7 +297,10 @@ This function is called by `org-babel-execute-src-block'."
 
           (with-current-buffer (get-buffer sql--buffer)
             (process-send-string (current-buffer)
-                                 (ob-sql-session-format-query body))
+                                 (ob-sql-session-format-query
+                                  body
+                                  ;;(org-babel-expand-body:sql body params)
+                                  ))
             ;; todo: check org-babel-comint-async-register
             (while (not ob-sql-session-command-terminated)
               ;; could there be a race condition here as described in (elisp) Accepting Output?
@@ -422,9 +424,9 @@ SET COLSEP '|'
                (`vertica "\\a\n")
                (_ ""))
              ;; "sqsh" requires "go" inserted at EOF.
-             (if (string= engine "sqsh") "\ngo" "")))
+             (if (string= engine "sqsh") "\ngo" "")
+             (org-babel-expand-body:sql body params))) ;; insert body
           (org-babel-eval command ""))))
-
 
     ;; collect results
     (org-babel-result-cond result-params
@@ -491,11 +493,10 @@ the :engine header argument provided in INFO."
   (let ((prologue (cdr (assq :prologue params)))
         (epilogue (cdr (assq :epilogue params))))
     (mapconcat 'identity
-               (list
-                prologue
-                (org-babel-sql-expand-vars
-                 body (org-babel--get-vars params))
-                epilogue)
+               (delq nil (list prologue
+                               (org-babel-sql-expand-vars
+                                body (org-babel--get-vars params))
+                               epilogue))
                "\n")))
 
 (defun org-babel-sql-expand-vars (body vars &optional sqlite)
@@ -549,8 +550,8 @@ specified, its `sql-product' or `sql-connection' must match."
          (let ((proc (get-buffer-process buffer)))
            (and proc (memq (process-status proc) '(open run)))))))
 
-(defun org-babel-sql-session-connect (engine params session)
-  "Start the SQL client of ENGINE if it has not.
+(defun org-babel-sql-session-connect (in-engine params session)
+  "Start the SQL client of IN-ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
@@ -562,7 +563,7 @@ that clearly identifies the connexion from Emacs,
 to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
-
+  (sql-set-product in-engine)
   (let* ( (sql-server    (cdr (assoc :dbhost params)))
           ;; (sql-port      (cdr (assoc :port params)))
           (sql-database  (cdr (assoc :database params)))
@@ -594,10 +595,10 @@ no longer needed while the session stays open."
       ;; otherwise initiate a connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              (ob-sql-connect engine buffer-name)))
+              (ob-sql-connect in-engine buffer-name)))
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
-          (user-error (format "SQL %s didn't start" engine)))
+          (user-error (format "SQL %s didn't start" in-engine)))
 
         ;; clear the welcoming message out of the output from the
         ;; first command, in the case where we forgot quiet mode.
@@ -719,7 +720,7 @@ Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
-
+  (message str)
   ;;(setq sql-product engine)
   (concat
    (let ((commands (split-string str "\n"))
