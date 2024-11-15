@@ -636,7 +636,8 @@ should also be prompted."
     (let (;(buf (sql-find-sqli-buffer sql-product sql-connection)) ; unused yet
           (prompt-regexp (sql-get-product-feature engine :prompt-regexp ))
           (prompt-cont-regexp (sql-get-product-feature engine :prompt-cont-regexp))
-          sqli-buffer rpt)
+          sqli-buffer
+          rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature
@@ -656,8 +657,6 @@ should also be prompted."
       ;; depending on client, password is forcefully prompted
 
       ;; Connect to database.
-      (setq rpt (sql-make-progress-reporter nil "Login"))
-
       (let ((sql-user       (default-value 'sql-user))
             (sql-password   (default-value 'sql-password))
             (sql-server     (default-value 'sql-server))
@@ -667,6 +666,7 @@ should also be prompted."
 
         ;; The password wallet returns a function
         ;; which supplies the password. (untested)
+        (message "sqlp ? %s" sql-password)
         (when (functionp sql-password)
           (setq sql-password (funcall sql-password)))
 
@@ -677,23 +677,24 @@ should also be prompted."
           (when previous-session
             (with-current-buffer
                 previous-session (erase-buffer))))
-        (setq
-         sqli-buffer
-         (let ((process-environment (copy-sequence process-environment))
-               (variables (sql-get-product-feature engine :environment)))
-           (mapc (lambda (elem)   ; environment variables, evaluated here
-                   (setenv (car elem) (eval (cadr elem))))
-                 variables)
-           (funcall (sql-get-product-feature engine :sqli-comint-func)
-                    engine
-                    (sql-get-product-feature engine :sqli-options)
-                    (format "SQL: %s" sql-cnx))))
+
+        (setq sqli-buffer
+              (let ((process-environment (copy-sequence process-environment))
+                    (variables (sql-get-product-feature engine :environment)))
+                (mapc (lambda (elem)   ; environment variables, evaluated here
+                        (setenv (car elem) (eval (cadr elem))))
+                      variables)
+                (funcall (sql-get-product-feature engine :sqli-comint-func)
+                         engine
+                         (sql-get-product-feature engine :sqli-options)
+                         (format "SQL: %s" sql-cnx))))
 
         (setq sql-buffer (buffer-name sqli-buffer))
 
+        (setq rpt (sql-make-progress-reporter nil "Login"))
         (with-current-buffer sql-buffer
           (let ((proc (get-buffer-process sqli-buffer))
-                (secs 3)
+                (secs org-babel-sql-timeout)
                 (step 0.2))
             (while (and proc
                         (memq (process-status proc) '(open run))
