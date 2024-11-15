@@ -55,7 +55,7 @@
 ;; - rowname-names
 ;;
 ;; Engines supported:
-;; - mysql
+;; - mysql/mariadb
 ;; - sqlite3
 ;; - dbi
 ;; - mssql
@@ -349,13 +349,13 @@ This function is called by `org-babel-execute-src-block'."
                                 (org-babel-process-file-name in-file))
                                (org-babel-sql-convert-standard-filename
                                 (org-babel-process-file-name out-file))))
-                (mysql (format "mysql %s %s %s < %s > %s"
-                               (org-babel-sql-dbstring-mysql
-                                dbhost dbport dbuser dbpassword database)
-                               (if colnames-p "" "-N")
-                               (or cmdline "")
-                               (org-babel-process-file-name in-file)
-                               (org-babel-process-file-name out-file)))
+                ((mysql mariadb) (format "mysql %s %s %s < %s > %s"
+                                         (org-babel-sql-dbstring-mysql
+                                          dbhost dbport dbuser dbpassword database)
+                                         (if colnames-p "" "-N")
+                                         (or cmdline "")
+                                         (org-babel-process-file-name in-file)
+                                         (org-babel-process-file-name out-file)))
                 ((postgresql postgres) (format
                                         "%s%s --set=\"ON_ERROR_STOP=1\" %s -A -P \
 footer=off -F \"\t\"  %s -f %s -o %s %s"
