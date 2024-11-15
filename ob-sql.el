@@ -90,14 +90,15 @@
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
-
-(setq sql-postgres-options
-      (list "--set=ON_ERROR_STOP=1"
-            (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
-            (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-            "-P" "pager=off"
-            "-P" "footer=off"
-            "-A" ))
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+(sql-set-product-feature
+ 'postgres :sqli-options
+ (list "--set=ON_ERROR_STOP=1"
+       (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
+       (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+       "-P" "pager=off"
+       "-P" "footer=off"
+       "-A" ))
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -571,13 +572,13 @@ no longer needed while the session stays open."
           (sql-password  (cdr (assoc :dbpassword params)))
           (buffer-name (format "%s" (if (string= session "none") ""
                                       (format "[%s]" session))))
-          ;; (buffer-name (format "%s%s://%s%s/%s"
-          ;;                      (if (string= session "none") ""
-          ;;                        (format "[%s] " session))
-          ;;                      engine
-          ;;                      (if sql-user (concat sql-user "@") "")
-          ;;                      (if sql-server (concat sql-server ":") "")
-          ;;                      sql-database))
+          ;; (buffer-name
+          ;;  (format "%s%s://%s%s/%s"
+          ;;          (if (string= session "none") "" (format "[%s] " session))
+          ;;          engine
+          ;;          (if sql-user (concat sql-user "@") "")
+          ;;          (if sql-server (concat sql-server ":") "")
+          ;;          sql-database))
           (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     ;; I get a nil on sql-for-each-login on the first call
@@ -585,14 +586,11 @@ no longer needed while the session stays open."
     ;; (if (sql-buffer-live-p ob-sql-buffer)
     ;; so put sql-buffer-live-p aside
     (if (ob-sql-session-buffer-live-p ob-sql-buffer)
-        (progn
-          ;; set again the filter
+        (progn  ; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
                               #'ob-sql-session-comint-output-filter)
-          ;; and return the buffer
-          ob-sql-buffer)
-
-      ;; otherwise initiate a connection
+          ob-sql-buffer) ; and return the buffer
+      ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
               (ob-sql-connect in-engine buffer-name)))
@@ -657,25 +655,25 @@ should also be prompted."
       ;; depending on client, password is forcefully prompted
 
       ;; Connect to database.
-      (let ((sql-user       (default-value 'sql-user))
-            (sql-password   (default-value 'sql-password))
-            (sql-server     (default-value 'sql-server))
-            (sql-database   (default-value 'sql-database))
-            (sql-port       (default-value 'sql-port))
-            (default-directory (or sql-default-directory default-directory)))
+      ;; (let ((sql-user       (default-value 'sql-user))
+      ;;       (sql-password   (default-value 'sql-password))
+      ;;       (sql-server     (default-value 'sql-server))
+      ;;       (sql-database   (default-value 'sql-database))
+      ;;       (sql-port       (default-value 'sql-port))
+      ;;       (default-directory (or sql-default-directory default-directory)))
 
-        ;; The password wallet returns a function
-        ;; which supplies the password. (untested)
-        (when (functionp sql-password)
-          (setq sql-password (funcall sql-password)))
+      ;; The password wallet returns a function
+      ;; which supplies the password. (untested)
+      (when (functionp sql-password)
+        (setq sql-password (funcall sql-password)))
 
-        ;; Erase previous sql-buffer as we'll be looking for it's prompt
-        ;; to indicate session readyness
-        (let ((previous-session
-               (get-buffer (format "*SQL: %s*" sql-cnx))))
-          (when previous-session
-            (with-current-buffer
-                previous-session (erase-buffer))))
+      ;; Erase previous sql-buffer as we'll be looking for it's prompt
+      ;; to indicate session readyness
+      (let ((previous-session
+             (get-buffer (format "*SQL: %s*" sql-cnx))))
+        (when previous-session
+          (with-current-buffer
+              previous-session (erase-buffer)))
 
         (setq sqli-buffer
               (let ((process-environment (copy-sequence process-environment))
@@ -687,7 +685,6 @@ should also be prompted."
                          engine
                          (sql-get-product-feature engine :sqli-options)
                          (format "SQL: %s" sql-cnx))))
-
         (setq sql-buffer (buffer-name sqli-buffer))
 
         (setq rpt (sql-make-progress-reporter nil "Login"))
@@ -702,7 +699,6 @@ should also be prompted."
                         (progn (goto-char (point-max))
                                (not (re-search-backward
                                      prompt-regexp 0 t))))
-              (message ">> %s" secs)
               (sql-progress-reporter-update rpt)))
 
           ;; no prompt, connexion failed (and process is terminated)
@@ -721,8 +717,7 @@ Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
 Finnally add the termination command."
-  (message str)
-  ;;(setq sql-product engine)
+
   (concat
    (let ((commands (split-string str "\n"))
          (terminal-command

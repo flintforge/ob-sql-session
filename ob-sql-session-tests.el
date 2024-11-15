@@ -185,8 +185,7 @@ sqlite|3.4
   (pg-test "DROP TABLE if exists publications;
 CREATE TABLE publications (id int2, database text);
 INSERT INTO publications VALUES (10, 'HGNC'), (13, 'FlyBase');
-SELECT database FROM publications where id=10 or id=13;"
-           "DROP TABLE
+SELECT database FROM publications where id=10 or id=13;" "DROP TABLE
 CREATE TABLE
 INSERT 0 2
 database\nHGNC\nFlyBase\n"))
