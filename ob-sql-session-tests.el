@@ -76,27 +76,27 @@ Compare the result against EXPECT."
    #'setup "sql :engine sqlite :session sqlite::tests :results raw"
    code expect))
 
-(ert-deftest sqllite-000:test-header ()
+(ert-deftest sqlite-000:test-header ()
   "Create table."
   (sqlite-test ".headers off" nil))
 
 
-(ert-deftest sqllite-001:test-create ()
+(ert-deftest sqlite-001:test-create ()
   "Create table."
   (sqlite-test ".headers off
 
 create table test(one varchar(10), two int);" nil))
 
-(ert-deftest sqllite-002:test-insert ()
+(ert-deftest sqlite-002:test-insert ()
   "Insert into table."
   (sqlite-test "insert into test values(\'hello\',\'world\');" nil))
 
-(ert-deftest sqllite-003:test-select ()
+(ert-deftest sqlite-003:test-select ()
   "Select from table."
   (sqlite-test "select * from test;"
                "hello|world\n"))
 
-(ert-deftest sqllite-004:test-filter-tabs ()
+(ert-deftest sqlite-004:test-filter-tabs ()
   "Insert with tabs."
   (sqlite-test "
       --create table test(x,y);
@@ -107,7 +107,7 @@ create table test(one varchar(10), two int);" nil))
 
 ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
-;; (ert-deftest sqllite-005:test-stop-on-error ()
+;; (ert-deftest sqlite-005:test-stop-on-error ()
 ;;   "stop on error.
 ;; joining line isn't ideal on that. May consider solution (2)"
 ;;   (sqlite-test "create table test(x,y);
@@ -116,7 +116,7 @@ create table test(one varchar(10), two int);" nil))
 ;; "
 ;;  "Parse error: table test already exists\n  create table test(x,y);       select 1; \n               ^--- error here" ))
 
-;; (ert-deftest sqllite-005a:test-multiple-commands ()
+;; (ert-deftest sqlite-005a:test-multiple-commands ()
 ;;   "Copy pasting this in sqlite3 will give the same result."
 ;;   :expected-result :failed
 ;;   (sqlite-test
@@ -130,12 +130,12 @@ create table test(one varchar(10), two int);" nil))
 ;;    "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
 ;;    )) ;; variations expected between sqlite versions
 
-(ert-deftest sqllite-005a:test-commands ()
+(ert-deftest sqlite-005a:test-commands ()
   (sqlite-test
    ".headers on
 " nil))
 
-(ert-deftest sqllite-005b:test-header-on ()
+(ert-deftest sqlite-005b:test-header-on ()
   (sqlite-test
    ".headers on
 --create table test(x,y);
@@ -152,10 +152,10 @@ sqlite|3.4
 ;; additionally, an error after a command can clutter the next shell
 ;;
 
-(ert-deftest sqllite-006:drop ()
+(ert-deftest sqlite-006:drop ()
   (sqlite-test "Drop table test;" nil))
 
-(ert-deftest sqllite-007:test-close-session()
+(ert-deftest sqlite-007:test-close-session()
   (with-current-buffer "*SQL: [sqlite::tests]*" ; sqlite:///nil*"
     (quit-process nil t)
     (let ((kill-buffer-query-functions nil))
