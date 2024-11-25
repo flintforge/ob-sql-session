@@ -65,10 +65,14 @@
 ;; - vertica
 ;; - saphana
 ;;
+;; Limitations:
+;; - session mode provides no error line
+;;
 ;; TODO:
 ;; - support for more engines
-;; - provide babel to SQL
+;; - babel tables as input
 ;; - expand body for sessions
+;; - convention for ob- prefix ?
 
 ;;; Code:
 
@@ -87,6 +91,7 @@
 (sql-set-product-feature 'sqlite :terminal-command "\\.")
 
 (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+(sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
@@ -136,6 +141,13 @@
     (out-file    . :any)
     (dbinstance  . :any))
   "HEADER arguments accepted.")
+
+(defcustom org-babel-sql-close-out-temp-buffer-p 'nil
+  "Close sql-out-temp buffer."
+  :type '(boolean)
+  :group 'org-babel-sql
+  :safe t)
+
 
 (defun org-babel-sql-dbstring-mysql (host port user password database)
   "Make MySQL command line arguments for database connection.
@@ -459,8 +471,7 @@ SET COLSEP '|'
               (delete-char 1)
               (goto-char (point-max))
               (forward-char -1))
-            (write-file out-file)
-            )))
+            (write-file out-file))))
 
         (when session-p
           (goto-char (point-min))
@@ -471,6 +482,8 @@ SET COLSEP '|'
             (replace-match "")))
 
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
+        (when org-babel-sql-close-out-temp-buffer-p
+          (kill-buffer (get-file-buffer out-file)))
         (org-babel-reassemble-table
          (mapcar (lambda (x)
                    (if (string= (car x) header-delim)
