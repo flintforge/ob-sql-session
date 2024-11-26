@@ -131,27 +131,26 @@
   :group 'org-babel-sql
   :safe t)
 
-(defconst org-babel-header-args:sql
-  '((engine      . :any)
-    (dbhost      . :any)
-    (dbport      . :any)
-    (dbuser      . :any)
-    (dbpassword  . :any)
-    (database    . :any)
-    (out-file    . :any)
-    (dbinstance  . :any))
-  "HEADER arguments accepted.")
-
 (defcustom org-babel-sql-close-out-temp-buffer-p 'nil
   "Close sql-out-temp buffer."
   :type '(boolean)
   :group 'org-babel-sql
   :safe t)
 
+(defconst org-babel-header-args:sql
+  '((engine      . :any)
+    (dbhost      . :any)
+    (dbport      . :any)
+    (dbuser      . :any)
+    (dbpassword  . :any)
+    (dbinstance  . :any)
+    (database    . :any)
+    (out-file    . :any))
+  "Header arguments accepted.")
 
 (defun org-babel-sql-dbstring-mysql (host port user password database)
   "Make MySQL command line arguments for database connection.
-Pass nil to omit arguments."
+nil arguments are ommited."
   (mapconcat
    #'identity
    (delq nil
