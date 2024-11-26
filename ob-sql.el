@@ -542,13 +542,6 @@ argument mechanism."
    vars)
   body)
 
-(defun org-babel-prep-session:sql (_session _params)
-  "Raise an error because Sql sessions aren't implemented."
-  (message "org-babel-prep-session"))
-
-(defun org-babel-load-session:sql (session body params)
-  (message "load session %s" session))
-
 (defun ob-sql-session-buffer-live-p (buffer)
   "Return non-nil if the process associated with buffer is live.
 
