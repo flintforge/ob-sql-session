@@ -65,14 +65,13 @@
 ;; - vertica
 ;; - saphana
 ;;
-;; Limitations:
-;; - session mode provides no error line
+;; Limitation:
+;; - no error line number in session mode
 ;;
 ;; TODO:
 ;; - support for more engines
 ;; - babel tables as input
 ;; - expand body for sessions
-;; - convention for ob- prefix ?
 
 ;;; Code:
 
