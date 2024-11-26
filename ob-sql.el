@@ -163,7 +163,7 @@ nil arguments are ommited."
 
 (defun org-babel-sql-dbstring-postgresql (host port user database)
   "Make PostgreSQL command line arguments for database connection.
-Pass nil to omit that arg."
+nil arguments are ommited."
   (mapconcat
    #'identity
    (delq nil
@@ -179,7 +179,6 @@ If HOST and PORT are nil then don't pass them.  This allows you
 to use names defined in your \"TNSNAMES\" file.  So you can
 connect with <USER>/<PASSWORD>@<HOST>:<PORT>/<DATABASE>
 or <user>/<password>@<database> using its alias."
-
   (when user (setq user (shell-quote-argument user)))
   (when password (setq password (shell-quote-argument password)))
   (when database (setq database (shell-quote-argument database)))
@@ -217,38 +216,36 @@ sqsh is one method to access Sybase or MS SQL via Linux platform."
 
 (defun org-babel-sql-dbstring-vertica (host port user password database)
   "Make Vertica command line args for database connection.
-Pass nil to omit that arg."
-  (mapconcat #'identity
-             (delq nil
-                   (list (when host     (format "-h %s" (shell-quote-argument host)))
-                         (when port     (format "-p %d" port))
-                         (when user     (format "-U %s" (shell-quote-argument user)))
-                         (when password (format "-w %s" (shell-quote-argument password) ))
-                         (when database (format "-d %s" (shell-quote-argument database)))))
-             " "))
+nil arguments are ommited."
+  (mapconcat
+   #'identity
+   (delq nil
+         (list (when host     (format "-h %s" (shell-quote-argument host)))
+               (when port     (format "-p %d" port))
+               (when user     (format "-U %s" (shell-quote-argument user)))
+               (when password (format "-w %s" (shell-quote-argument password) ))
+               (when database (format "-d %s" (shell-quote-argument database)))))
+   " "))
 
 (defun org-babel-sql-dbstring-saphana (host port instance user password database)
   "Make SAP HANA command line args for database connection.
-Pass nil to omit that arg."
-  (mapconcat #'identity
-             (delq nil
-                   (list (and host port (format "-n %s:%s"
-                                                (shell-quote-argument host)
-                                                port))
-                         (and host (not port) (format "-n %s" (shell-quote-argument host)))
-                         (and instance (format "-i %d" instance))
-                         (and user (format "-u %s" (shell-quote-argument user)))
-                         (and password (format "-p %s"
-                                               (shell-quote-argument password)))
-                         (and database (format "-d %s" (shell-quote-argument database)))))
-             " "))
+nil arguments are ommited."
+  (mapconcat
+   #'identity
+   (delq nil
+         (list (and host port (format "-n %s:%s" (shell-quote-argument host) port))
+               (and host (not port) (format "-n %s" (shell-quote-argument host)))
+               (and instance (format "-i %d" instance))
+               (and user     (format "-u %s" (shell-quote-argument user)))
+               (and password (format "-p %s" (shell-quote-argument password)))
+               (and database (format "-d %s" (shell-quote-argument database)))))
+   " "))
 
 (defun org-babel-sql-convert-standard-filename (file)
   "Convert FILE to OS standard file name.
 If in Cygwin environment, uses Cygwin specific function to
 convert the file name.  In a Windows-NT environment, do nothing.
 Otherwise, use Emacs's standard conversion function."
-
   (cond ((fboundp 'cygwin-convert-file-name-to-windows)
          (format "%S" (cygwin-convert-file-name-to-windows file)))
         ((string= "windows-nt" system-type) file)
@@ -261,7 +258,6 @@ then look for the parameter into the corresponding connection
 defined in `sql-connection-alist', otherwise look into PARAMS.
 See `sql-connection-alist' (part of SQL mode) for how to define
 database connections."
-
   (or (cdr (assq name params))
       (and (assq :dbconnection params)
            (let* ((dbconnection (cdr (assq :dbconnection params)))
@@ -278,7 +274,6 @@ database connections."
 (defun org-babel-execute:sql (body params)
   "Execute a block of SQL code in BODY with PARAMS.
 This function is called by `org-babel-execute-src-block'."
-
   (let* ((result-params (cdr (assq :result-params params)))
          (engine (cdr (assq :engine params)))
          (in-engine  (intern (or engine (user-error "Missing :engine"))))
