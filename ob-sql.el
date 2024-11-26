@@ -79,6 +79,7 @@
 (require 'ob)
 (require 'sql)
 
+(defvar sql-connection-alist)
 (defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
 (defvar ob-sql-session-command-terminated nil)
 (defvar org-babel-sql-out-file)
