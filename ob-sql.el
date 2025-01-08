@@ -92,10 +92,11 @@
 (sql-get-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 
-;(sql-set-product-feature 'postgres :prompt-regexp "SQL> ") ;; (sql-get-product-feature 'postgres :prompt-regexp )
-;(sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
- (sql-set-product-feature 'postgres :batch-terminate
-                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+;; (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
+;; (sql-get-product-feature 'postgres :prompt-regexp )
+;; (sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
+(sql-set-product-feature 'postgres :batch-terminate
+                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
 
 ;; (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 ;; (sql-get-product-feature
