@@ -55,7 +55,7 @@
 ;; - rowname-names
 ;;
 ;; Engines supported:
-;; - mysql/mariadb
+;; - mysql
 ;; - sqlite3
 ;; - dbi
 ;; - mssql
@@ -66,7 +66,7 @@
 ;; - saphana
 ;;
 ;; Limitation:
-;; - no error line number in session mode
+;; - session mode doesn't provide error line number
 ;;
 ;; TODO:
 ;; - support for more engines
@@ -75,39 +75,32 @@
 
 ;;; Code:
 
-(require 'org-macs)
 (require 'ob)
 (require 'sql)
 
 (defvar sql-connection-alist)
-(defvar ob-sql-session--batch-end-indicator  "---#"  "Indicate the end of a command batch.")
-(defvar ob-sql-session-command-terminated nil)
+(defvar org-sql-session--batch-terminate  "---#"  "Indicate the end of a command batch.")
+(defvar org-sql-session-command-terminated nil)
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-;; (sql-get-product-feature 'sqlite :prompt-regexp) "sqlite> ")
-;; (sql-set-product-feature 'sqlite :batch-terminate
-;;                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
-
 (sql-set-product-feature 'sqlite :terminal-command "\\.")
+(sql-set-product-feature 'sqlite :ob-sql-batch-terminate
+                         (format ".print %s\n" org-sql-session--batch-terminate))
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
+(sql-set-product-feature 'postgres :ob-sql-batch-terminate
+                         (format "\\echo %s\n" org-sql-session--batch-terminate))
 
-;; (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-;; (sql-get-product-feature 'postgres :prompt-regexp )
-;; (sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
-(sql-set-product-feature 'postgres :batch-terminate
-                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
-;; (sql-get-product-feature
-;;  'postgres :sqli-options)
- ;; (list "--set=ON_ERROR_STOP=1"
- ;;       ;; (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
- ;;       ;; (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
- ;;       "-P" "pager=off"
- ;;       "-P" "footer=off"
- ;;       "-A" ))
-;; (sql-get-product-feature
-;;  'postgres :sqli-options)
+(sql-set-product-feature 'postgres :ob-sql-environment '(("PGPASSWORD" sql-password)))
+
+;; (sql-set-product-feature
+;;  'postgres :sqli-options
+;;  (list "--set=ON_ERROR_STOP=1"
+;;        (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
+;;        (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+;;        "-P" "pager=off"
+;;        "-P" "footer=off"
+;;        "-A" ))
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -304,7 +297,7 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (erase-buffer))
           (setq org-babel-sql-session-start-time (current-time))
-          (setq ob-sql-session-command-terminated nil)
+          (setq org-sql-session-command-terminated nil)
 
           (with-current-buffer (get-buffer sql--buffer)
             (process-send-string (current-buffer)
@@ -313,7 +306,7 @@ This function is called by `org-babel-execute-src-block'."
                                   ;;(org-babel-expand-body:sql body params)
                                   ))
             ;; todo: check org-babel-comint-async-register
-            (while (not ob-sql-session-command-terminated)
+            (while (not org-sql-session-command-terminated)
               ;; could there be a race condition here as described in (elisp) Accepting Output?
               (sleep-for 0.03))
             ;; command finished, remove filter
@@ -564,7 +557,7 @@ buffer.
 
 The buffer naming was shortened from
 *[session] engine://user@host/database*,
-that clearly identifies the connection from Emacs,
+that clearly identifies the connexion from Emacs,
 to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
@@ -589,7 +582,8 @@ no longer needed while the session stays open."
     ;; to sql-interactive  at
     ;; (if (sql-buffer-live-p ob-sql-buffer)
     ;; so put sql-buffer-live-p aside
-    (if (ob-sql-session-buffer-live-p ob-sql-buffer)
+    (if (org-babel-comint-buffer-livep ob-sql-buffer)
+				;;    (if (ob-sql-session-buffer-live-p ob-sql-buffer)
         (progn  ; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
                               #'ob-sql-session-comint-output-filter)
@@ -597,7 +591,8 @@ no longer needed while the session stays open."
       ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              (ob-sql-connect in-engine buffer-name)))
+              ;;(ob-sql-connect in-engine buffer-name)))
+              (sql-connect nil buffer-name)))
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" in-engine)))
@@ -645,7 +640,7 @@ should also be prompted."
       (sql-set-product-feature
        engine :ob-sql-session-clean-output
        (concat "\\(" prompt-regexp "\\)"
-               "\\|\\(" ob-sql-session--batch-end-indicator "\n\\)"
+               "\\|\\(" org-sql-session--batch-terminate "\n\\)"
                (when prompt-cont-regexp
                  (concat "\\|\\(" prompt-cont-regexp "\\)"))))
       ;; Get credentials.
@@ -681,7 +676,7 @@ should also be prompted."
 
         (setq sqli-buffer
               (let ((process-environment (copy-sequence process-environment))
-                    (variables (sql-get-product-feature engine :environment)))
+                    (variables (sql-get-product-feature engine :ob-sql-environment)))
                 (mapc (lambda (elem)   ; environment variables, evaluated here
                         (setenv (car elem) (eval (cadr elem))))
                       variables)
@@ -736,7 +731,7 @@ Finnally add the termination command."
                    (replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
-   ";\n" (sql-get-product-feature sql-product :batch-terminate) "\n" ))
+   ";\n" (sql-get-product-feature sql-product :ob-sql-batch-terminate) "\n" ))
 
 
 (defun ob-sql-session-comint-output-filter (_proc string)
@@ -750,12 +745,12 @@ its message buffer"
   ;; `comint-redirect-setup' to possibly fix that,
   ;; (with-current-buffer (process-buffer proc) (insert output))
 
-  (when (or (string-match ob-sql-session--batch-end-indicator string)
+  (when (or (string-match org-sql-session--batch-terminate string)
             (> (time-to-seconds
                 (time-subtract (current-time)
                                org-babel-sql-session-start-time))
                org-babel-sql-timeout))
-    (setq ob-sql-session-command-terminated t))
+    (setq org-sql-session-command-terminated t))
 
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
     (insert string)))
