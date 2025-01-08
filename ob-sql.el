@@ -89,7 +89,7 @@
 ;; (sql-set-product-feature 'sqlite :batch-terminate
 ;;                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
 
-(sql-get-product-feature 'sqlite :terminal-command "\\.")
+(sql-set-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
 
 ;; (sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
