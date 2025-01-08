@@ -85,25 +85,29 @@
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-(sql-set-product-feature 'sqlite :prompt-regexp "sqlite> ")
-(sql-set-product-feature 'sqlite :batch-terminate
-                         (format ".print %s\n" ob-sql-session--batch-end-indicator))
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
+;; (sql-get-product-feature 'sqlite :prompt-regexp) "sqlite> ")
+;; (sql-set-product-feature 'sqlite :batch-terminate
+;;                          (format ".print %s\n" ob-sql-session--batch-end-indicator))
 
-(sql-set-product-feature 'postgres :prompt-regexp "SQL> ")
-(sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
-(sql-set-product-feature 'postgres :batch-terminate
-                         (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+(sql-get-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'postgres :terminal-command "\\\\")
-(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
-(sql-set-product-feature
- 'postgres :sqli-options
- (list "--set=ON_ERROR_STOP=1"
-       (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
-       (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-       "-P" "pager=off"
-       "-P" "footer=off"
-       "-A" ))
+
+;(sql-set-product-feature 'postgres :prompt-regexp "SQL> ") ;; (sql-get-product-feature 'postgres :prompt-regexp )
+;(sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
+ (sql-set-product-feature 'postgres :batch-terminate
+                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
+
+;; (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+;; (sql-get-product-feature
+;;  'postgres :sqli-options)
+ ;; (list "--set=ON_ERROR_STOP=1"
+ ;;       ;; (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
+ ;;       ;; (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
+ ;;       "-P" "pager=off"
+ ;;       "-P" "footer=off"
+ ;;       "-A" ))
+;; (sql-get-product-feature
+;;  'postgres :sqli-options)
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -560,7 +564,7 @@ buffer.
 
 The buffer naming was shortened from
 *[session] engine://user@host/database*,
-that clearly identifies the connexion from Emacs,
+that clearly identifies the connection from Emacs,
 to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
