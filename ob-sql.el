@@ -97,8 +97,7 @@
 ;; (sql-set-product-feature 'postgres :prompt-cont-regexp "> ")
 (sql-set-product-feature 'postgres :batch-terminate
                          (format "\\echo %s\n" ob-sql-session--batch-end-indicator))
-
-;; (sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
+(sql-set-product-feature 'postgres :environment '(("PGPASSWORD" sql-password)))
 ;; (sql-get-product-feature
 ;;  'postgres :sqli-options)
  ;; (list "--set=ON_ERROR_STOP=1"
