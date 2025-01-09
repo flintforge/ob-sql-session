@@ -55,7 +55,7 @@
 ;; - rowname-names
 ;;
 ;; Engines supported:
-;; - mysql
+;; - mysql/mariadb
 ;; - sqlite3
 ;; - dbi
 ;; - mssql
@@ -66,7 +66,7 @@
 ;; - saphana
 ;;
 ;; Limitation:
-;; - session mode doesn't provide error line number
+;; - no error line number in session mode
 ;;
 ;; TODO:
 ;; - support for more engines
@@ -75,32 +75,23 @@
 
 ;;; Code:
 
+(require 'org-macs)
 (require 'ob)
 (require 'sql)
 
 (defvar sql-connection-alist)
-(defvar org-sql-session--batch-terminate  "---#"  "Indicate the end of a command batch.")
+(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 (defvar org-sql-session-command-terminated nil)
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-(sql-set-product-feature 'sqlite :terminal-command "\\.")
 (sql-set-product-feature 'sqlite :ob-sql-batch-terminate
                          (format ".print %s\n" org-sql-session--batch-terminate))
-(sql-set-product-feature 'postgres :terminal-command "\\\\")
+(sql-set-product-feature 'sqlite :ob-sql-terminal-command "\\.")
 (sql-set-product-feature 'postgres :ob-sql-batch-terminate
                          (format "\\echo %s\n" org-sql-session--batch-terminate))
-
+(sql-set-product-feature 'postgres :ob-sql-terminal-command "\\\\")
 (sql-set-product-feature 'postgres :ob-sql-environment '(("PGPASSWORD" sql-password)))
-
-;; (sql-set-product-feature
-;;  'postgres :sqli-options
-;;  (list "--set=ON_ERROR_STOP=1"
-;;        (format "--set=PROMPT1=%s" (sql-get-product-feature 'postgres :prompt-regexp ))
-;;        (format "--set=PROMPT2=%s" (sql-get-product-feature 'postgres :prompt-cont-regexp ))
-;;        "-P" "pager=off"
-;;        "-P" "footer=off"
-;;        "-A" ))
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -301,7 +292,7 @@ This function is called by `org-babel-execute-src-block'."
 
           (with-current-buffer (get-buffer sql--buffer)
             (process-send-string (current-buffer)
-                                 (ob-sql-session-format-query
+                                 (org-sql-session-format-query
                                   body
                                   ;;(org-babel-expand-body:sql body params)
                                   ))
@@ -323,7 +314,7 @@ This function is called by `org-babel-execute-src-block'."
             (goto-char (point-min))
             ;; clear the output or prompt and termination
             (while (re-search-forward
-                    (sql-get-product-feature in-engine :ob-sql-session-clean-output)
+                    (sql-get-product-feature in-engine :org-sql-session-clean-output)
                     nil t)
               (replace-match ""))
             (write-file out-file)))
@@ -468,7 +459,7 @@ SET COLSEP '|'
           (goto-char (point-min))
           ;; clear the output of prompt and termination
           (while (re-search-forward
-                  (sql-get-product-feature in-engine :ob-sql-session-clean-output)
+                  (sql-get-product-feature in-engine :org-sql-session-clean-output)
                   nil t)
             (replace-match "")))
 
@@ -533,7 +524,7 @@ argument mechanism."
    vars)
   body)
 
-(defun ob-sql-session-buffer-live-p (buffer)
+(defun org-sql-session-buffer-live-p (buffer)
   "Return non-nil if the process associated with buffer is live.
 
 This redefines `sql-buffer-live-p' of sql.el, considering the terminal
@@ -582,17 +573,15 @@ no longer needed while the session stays open."
     ;; to sql-interactive  at
     ;; (if (sql-buffer-live-p ob-sql-buffer)
     ;; so put sql-buffer-live-p aside
-    (if (org-babel-comint-buffer-livep ob-sql-buffer)
-				;;    (if (ob-sql-session-buffer-live-p ob-sql-buffer)
+    (if (org-sql-session-buffer-live-p ob-sql-buffer)
         (progn  ; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
-                              #'ob-sql-session-comint-output-filter)
+                              #'org-sql-session-comint-output-filter)
           ob-sql-buffer) ; and return the buffer
       ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              ;;(ob-sql-connect in-engine buffer-name)))
-              (sql-connect nil buffer-name)))
+              (ob-sql-connect in-engine buffer-name)))
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" in-engine)))
@@ -603,12 +592,12 @@ no longer needed while the session stays open."
         ;; so if quiet mode is off and the connexion takes time
         ;; then the welcoming message may show up
 
-        ;;(while (not ob-sql-session-connected))
+        ;;(while (not org-sql-session-connected))
         ;;(sleep-for 0.10)
         (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
         ;; set the redirection filter
         (set-process-filter sql-term-proc
-                            #'ob-sql-session-comint-output-filter)
+                            #'org-sql-session-comint-output-filter)
         ;; return that buffer
         (get-buffer ob-sql-buffer)))))
 
@@ -638,7 +627,7 @@ should also be prompted."
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
       (sql-set-product-feature
-       engine :ob-sql-session-clean-output
+       engine :org-sql-session-clean-output
        (concat "\\(" prompt-regexp "\\)"
                "\\|\\(" org-sql-session--batch-terminate "\n\\)"
                (when prompt-cont-regexp
@@ -709,7 +698,7 @@ should also be prompted."
       (sql-progress-reporter-done rpt)
       (get-buffer sqli-buffer))))
 
-(defun ob-sql-session-format-query (str)
+(defun org-sql-session-format-query (str)
   "Process then send the command STR to the SQL process.
 Provide ENGINE to retrieve product features.
 Carefully separate client commands from SQL commands
@@ -721,7 +710,7 @@ Finnally add the termination command."
    (let ((commands (split-string str "\n"))
          (terminal-command
           (concat "^\s*"
-                  (sql-get-product-feature sql-product :terminal-command))))
+                  (sql-get-product-feature sql-product :ob-sql-terminal-command))))
      (mapconcat
       (lambda(s)
         (when (not
@@ -734,7 +723,7 @@ Finnally add the termination command."
    ";\n" (sql-get-product-feature sql-product :ob-sql-batch-terminate) "\n" ))
 
 
-(defun ob-sql-session-comint-output-filter (_proc string)
+(defun org-sql-session-comint-output-filter (_proc string)
   "Process output STRING of PROC gets redirected to a temporary buffer.
 It is called several times consecutively as the shell outputs and flush
 its message buffer"
