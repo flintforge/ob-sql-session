@@ -84,7 +84,12 @@
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-
+(defvar org-sql-session-preamble
+  (list 'postgres "\\set ON_ERROR_STOP 1
+\\pset footer off
+\\pset pager off
+\\pset format unaligned")
+  "Command preamble to run upon shell start.")
 (defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 (defvar ob-sql-batch-terminate
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
@@ -437,17 +442,16 @@ SET COLSEP '|'
         (progn (insert-file-contents-literally out-file) (buffer-string)))
       (with-temp-buffer
         (cond
-         ((memq in-engine '(dbi sqlite mysql postgresql postgres saphana sqsh vertica))
+         ((memq in-engine '(dbi sqlite mysql postgres postgresql saphana sqsh vertica))
           ;; Add header row delimiter after column-names header in first line
-          (cond
-           (colnames-p
-            (with-temp-buffer
-              (insert-file-contents out-file)
-              (goto-char (point-min))
-              (forward-line 1)
-              (insert "-\n")
-              (setq header-delim "-")
-              (write-file out-file)))))
+          (when colnames-p
+						(with-temp-buffer
+							(insert-file-contents out-file)
+							(goto-char (point-min))
+							(forward-line 1)
+							(insert "-\n")
+							(setq header-delim "-")
+							(write-file out-file))))
          (t
           ;; Need to figure out the delimiter for the header row
           (with-temp-buffer
@@ -600,9 +604,12 @@ no longer needed while the session stays open."
         ;; so if quiet mode is off and the connexion takes time
         ;; then the welcoming message may show up
 
-        ;;(while (not org-sql-session-connected))
-        ;;(sleep-for 0.10)
-        (with-current-buffer (get-buffer ob-sql-buffer) (erase-buffer))
+        (with-current-buffer (get-buffer ob-sql-buffer)
+					(let ((preamble (plist-get org-sql-session-preamble in-engine)))
+						(when preamble
+							(process-send-string ob-sql-buffer preamble)
+							(comint-send-input))))
+				(sleep-for 0.1) ; or the result of the preamble will be in the process filter
         ;; set the redirection filter
         (set-process-filter sql-term-proc
                             #'org-sql-session-comint-output-filter)
@@ -731,13 +738,13 @@ Finnally add the termination command."
                (string-match "\\(^[\s\t]*--.*$\\)\\|\\(^[\s\t]*$\\)" s))
           (concat (replace-regexp-in-string
                    "[\t]" "" ; filter tabs
-                   (replace-regexp-in-string "--.*" "" s)) ;; remove comments
+                   (replace-regexp-in-string "--.*" "" s)) ;; remove comments.
+									;; Note: additional filtering is required for Vertica C-style comments.
                   (when (string-match terminal-command s) "\n"))))
-      commands " " )) ; the only way to  stop on error,
+      commands " " ))
    ";\n"
    (plist-get ob-sql-batch-terminate in-engine)
    "\n" ))
-
 
 (defun org-sql-session-comint-output-filter (_proc string)
   "Process output STRING of PROC gets redirected to a temporary buffer.
