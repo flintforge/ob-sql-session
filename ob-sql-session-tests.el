@@ -155,7 +155,7 @@ sqlite|3.4
 (ert-deftest sqlite-006:drop ()
   (sqlite-test "Drop table test;" nil))
 
-(ert-deftest sqlite-007:test-close-session()
+(ert-deftest sqlite-X:test-close-session()
   (with-current-buffer "*SQL: [sqlite::tests]*" ; sqlite:///nil*"
     (quit-process nil t)
     (let ((kill-buffer-query-functions nil))
@@ -165,7 +165,7 @@ sqlite|3.4
   "Test Postgres SQL CODE, with EXPECT 'ed result."
   (babel-block-test
    #'setup
-   "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw"
+   "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw :var var=33"
    code expect))
 
 (defun pg-test-session (code expect)
@@ -184,7 +184,7 @@ sqlite|3.4
   "Select in a table."
   (pg-test-session "select :id10 as A,:id13 as B;" "a|b\n10|13\n"))
 
-(ert-deftest pg-001:test-create-insert-select ()
+(ert-deftest pg-003:test-create-insert-select ()
   "Select in a table."
   (pg-test "DROP TABLE if exists publications;
 CREATE TABLE publications (id int2, database text);
@@ -194,6 +194,9 @@ CREATE TABLE
 INSERT 0 2
 database\nHGNC\nFlyBase\n"))
 
+(ert-deftest pg-004:test-expand-variable ()
+  "Expand variable."
+  (pg-test "select $var as var;" "var\n33\n"))
 
 ;; (eval-buffer)
 ;; (ert :new)

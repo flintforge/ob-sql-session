@@ -71,7 +71,6 @@
 ;; TODO:
 ;; - support for more engines
 ;; - babel tables as input
-;; - expand body for sessions
 
 ;;; Code:
 
