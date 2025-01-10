@@ -80,23 +80,30 @@
 (require 'sql)
 
 (defvar sql-connection-alist)
-(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 (defvar org-sql-session-command-terminated nil)
 (defvar org-babel-sql-out-file)
 (defvar org-babel-sql-session-start-time)
 
-(sql-set-product-feature 'sqlite :ob-sql-batch-terminate
-                         (format ".print %s\n" org-sql-session--batch-terminate))
-(sql-set-product-feature 'sqlite :ob-sql-terminal-command "\\.")
-(sql-set-product-feature 'postgres :ob-sql-batch-terminate
-                         (format "\\echo %s\n" org-sql-session--batch-terminate))
-(sql-set-product-feature 'postgres :ob-sql-terminal-command "\\\\")
-(sql-set-product-feature 'postgres :ob-sql-environment '(("PGPASSWORD" sql-password)))
+
+(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
+(defvar ob-sql-batch-terminate
+  (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
+        'postgres (format "\\echo %s\n" org-sql-session--batch-terminate))
+  "Print the command batch termination as last command.")
+(defvar ob-sql-terminal-command-prefix
+  (list 'sqlite "\\."
+        ' postgres "\\\\")
+  "Indentify a command for the SQL shell.")
+(defvar org-sql-environment
+  (list 'postgres '(("PGPASSWORD" sql-password))))
+(defvar org-sql-session-clean-output nil
+  "Store the regexp used to clear output (prompt1|termination|prompt2).")
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
 (declare-function org-table-to-lisp "org-table" (&optional txt))
 (declare-function cygwin-convert-file-name-to-windows "cygw32.c" (file &optional absolute-p))
+
 (declare-function sql-set-product "sql" (product))
 
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
@@ -293,7 +300,7 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer sql--buffer)
             (process-send-string (current-buffer)
                                  (org-sql-session-format-query
-                                  body
+                                  body in-engine
                                   ;;(org-babel-expand-body:sql body params)
                                   ))
             ;; todo: check org-babel-comint-async-register
@@ -313,11 +320,12 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (goto-char (point-min))
             ;; clear the output or prompt and termination
-            (while (re-search-forward
-                    (sql-get-product-feature in-engine :org-sql-session-clean-output)
-                    nil t)
-              (replace-match ""))
-            (write-file out-file)))
+            (let ((clear-output ;;(plist-get org-sql-session-clean-output in-engine)
+                   (sql-get-product-feature in-engine :org-sql-session-clean-output)
+                   ))
+              (while (re-search-forward clear-output nil t)
+                (replace-match ""))
+              (write-file out-file))))
 
       ;; else, command line
       (let* ((cmdline (cdr (assq :cmdline params)))
@@ -626,12 +634,17 @@ should also be prompted."
           rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
-      (sql-set-product-feature
-       engine :org-sql-session-clean-output
-       (concat "\\(" prompt-regexp "\\)"
-               "\\|\\(" org-sql-session--batch-terminate "\n\\)"
-               (when prompt-cont-regexp
-                 (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+      (plist-put org-sql-session-clean-output engine
+                 (concat "\\(" prompt-regexp "\\)"
+                         "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                         (when prompt-cont-regexp
+                           (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+      (sql-set-product-feature engine :org-sql-session-clean-output
+                               (concat "\\(" prompt-regexp "\\)"
+                                       "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                                       (when prompt-cont-regexp
+                                         (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+
       ;; Get credentials.
       ;; either all fields are provided
       ;; or there's a specific case were no login is needed
@@ -665,7 +678,7 @@ should also be prompted."
 
         (setq sqli-buffer
               (let ((process-environment (copy-sequence process-environment))
-                    (variables (sql-get-product-feature engine :ob-sql-environment)))
+                    (variables (plist-get org-sql-environment engine)))
                 (mapc (lambda (elem)   ; environment variables, evaluated here
                         (setenv (car elem) (eval (cadr elem))))
                       variables)
@@ -698,7 +711,7 @@ should also be prompted."
       (sql-progress-reporter-done rpt)
       (get-buffer sqli-buffer))))
 
-(defun org-sql-session-format-query (str)
+(defun org-sql-session-format-query (str in-engine)
   "Process then send the command STR to the SQL process.
 Provide ENGINE to retrieve product features.
 Carefully separate client commands from SQL commands
@@ -710,7 +723,8 @@ Finnally add the termination command."
    (let ((commands (split-string str "\n"))
          (terminal-command
           (concat "^\s*"
-                  (sql-get-product-feature sql-product :ob-sql-terminal-command))))
+                  ;;(sql-get-product-feature sql-product :ob-sql-terminal-command))))
+                  (plist-get ob-sql-terminal-command-prefix in-engine))))
      (mapconcat
       (lambda(s)
         (when (not
@@ -720,7 +734,9 @@ Finnally add the termination command."
                    (replace-regexp-in-string "--.*" "" s)) ;; remove comments
                   (when (string-match terminal-command s) "\n"))))
       commands " " )) ; the only way to  stop on error,
-   ";\n" (sql-get-product-feature sql-product :ob-sql-batch-terminate) "\n" ))
+   ";\n"
+   (plist-get ob-sql-batch-terminate in-engine)
+   "\n" ))
 
 
 (defun org-sql-session-comint-output-filter (_proc string)
