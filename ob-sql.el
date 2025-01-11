@@ -96,7 +96,7 @@
   "Print the command batch termination as last command.")
 (defvar ob-sql-terminal-command-prefix
   (list 'sqlite "\\."
-        ' postgres "\\\\")
+        'postgres "\\\\")
   "Indentify a command for the SQL shell.")
 (defvar org-sql-environment
   (list 'postgres '(("PGPASSWORD" sql-password))))
