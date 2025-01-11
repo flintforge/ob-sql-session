@@ -534,21 +534,6 @@ argument mechanism."
    vars)
   body)
 
-(defun org-sql-session-buffer-live-p (buffer)
-  "Return non-nil if the process associated with buffer is live.
-
-This redefines `sql-buffer-live-p' of sql.el, considering the terminal
-is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
-object or a buffer name.  The buffer must be a live buffer, have a
-running process attached to it, and, if PRODUCT or CONNECTION are
-specified, its `sql-product' or `sql-connection' must match."
-
-  (let ((buffer (get-buffer buffer)))
-    (and buffer
-         (buffer-live-p buffer)
-         (let ((proc (get-buffer-process buffer)))
-           (and proc (memq (process-status proc) '(open run)))))))
-
 (defun org-babel-sql-session-connect (in-engine params session)
   "Start the SQL client of IN-ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
@@ -579,11 +564,7 @@ no longer needed while the session stays open."
           ;;          sql-database))
           (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
-    ;; I get a nil on sql-for-each-login on the first call
-    ;; to sql-interactive  at
-    ;; (if (sql-buffer-live-p ob-sql-buffer)
-    ;; so put sql-buffer-live-p aside
-    (if (org-sql-session-buffer-live-p ob-sql-buffer)
+    (if (org-babel-comint-buffer-livep ob-sql-buffer)
         (progn  ; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
                               #'org-sql-session-comint-output-filter)
