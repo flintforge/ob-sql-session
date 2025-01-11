@@ -1,6 +1,6 @@
 ;;; ob-sql.el --- Babel Functions for SQL            -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2025 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Maintainer: Daniel Kraus <daniel@kraus.my>
@@ -107,7 +107,6 @@
 (declare-function orgtbl-to-csv "org-table" (table params))
 (declare-function org-table-to-lisp "org-table" (&optional txt))
 (declare-function cygwin-convert-file-name-to-windows "cygw32.c" (file &optional absolute-p))
-
 (declare-function sql-set-product "sql" (product))
 
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
