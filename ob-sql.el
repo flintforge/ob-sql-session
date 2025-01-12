@@ -71,6 +71,7 @@
 ;; TODO:
 ;; - support for more engines
 ;; - babel tables as input
+;; - port number in session
 
 ;;; Code:
 
@@ -97,7 +98,7 @@
 (defvar ob-sql-terminal-command-prefix
   (list 'sqlite "\\."
         'postgres "\\\\")
-  "Indentify a command for the SQL shell.")
+  "Identify a command for the SQL shell.")
 (defvar org-sql-environment
   (list 'postgres '(("PGPASSWORD" sql-password))))
 (defvar org-sql-session-clean-output nil
@@ -584,11 +585,11 @@ no longer needed while the session stays open."
         ;; then the welcoming message may show up
 
         (with-current-buffer (get-buffer ob-sql-buffer)
-					(let ((preamble (plist-get org-sql-session-preamble in-engine)))
-						(when preamble
-							(process-send-string ob-sql-buffer preamble)
-							(comint-send-input))))
-				(sleep-for 0.1) ; or the result of the preamble will be in the process filter
+          (let ((preamble (plist-get org-sql-session-preamble in-engine)))
+            (when preamble
+              (process-send-string ob-sql-buffer preamble)
+              (comint-send-input))))
+        (sleep-for 0.1) ; or the result of the preamble will be in the process filter
         ;; set the redirection filter
         (set-process-filter sql-term-proc
                             #'org-sql-session-comint-output-filter)
@@ -718,7 +719,7 @@ Finnally add the termination command."
           (concat (replace-regexp-in-string
                    "[\t]" "" ; filter tabs
                    (replace-regexp-in-string "--.*" "" s)) ;; remove comments.
-									;; Note: additional filtering is required for Vertica C-style comments.
+                  ;; Note: additional filtering is required for Vertica C-style comments.
                   (when (string-match terminal-command s) "\n"))))
       commands " " ))
    ";\n"
