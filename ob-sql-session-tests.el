@@ -3,7 +3,7 @@
 ;;; Code:
 
 (load-file "./ob-sql.el")
-
+(org-version nil t t)
 ;; redefine (or patch...)
 (defun sql-comint-sqlite (product &optional options buf-name)
   "Create comint buffer and connect to SQLite."
@@ -67,6 +67,7 @@ Compare the result against EXPECT."
         (org-mode)
         (org-babel-next-src-block)
         (org-babel-execute-src-block)
+        (message "=>\n%s" (results-block-contents))
         (should (string= expect (results-block-contents)))
         )))))
 
@@ -210,4 +211,3 @@ database\nHGNC\nFlyBase\n"))
 ;; (ert-delete-all-tests)
 ;; (with-current-buffer "ob-sql.el" (save-buffer))
 ;; (progn (ert-delete-all-tests)(eval-buffer)(ert :new))
- 
