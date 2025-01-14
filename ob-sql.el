@@ -297,7 +297,7 @@ This function is called by `org-babel-execute-src-block'."
     (if (or session-p org-sql-run-comint-p)
         ;; run through comint
         (let ((sql--buffer
-               (org-sql-session-connect in-engine params session)))
+               (org-babel-sql-session-connect in-engine params session)))
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (erase-buffer))
           (setq org-sql-session-start-time (current-time))
@@ -576,7 +576,7 @@ no longer needed while the session stays open."
       ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              (ob-sql-connect in-engine buffer-name)))
+              (org-babel-sql-connect in-engine buffer-name)))
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" in-engine)))
@@ -599,7 +599,7 @@ no longer needed while the session stays open."
         ;; return that buffer
         (get-buffer ob-sql-buffer)))))
 
-(defun ob-sql-connect (&optional engine sql-cnx)
+(defun org-babel-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
 
 Imported from sql.el with a few modification in order
