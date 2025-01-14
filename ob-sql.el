@@ -71,6 +71,7 @@
 ;; TODO:
 ;; - support for more engines
 ;; - babel tables as input
+;; - port number in session
 
 ;;; Code:
 
@@ -90,14 +91,14 @@
 \\pset format unaligned")
   "Command preamble to run upon shell start.")
 (defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
-(defvar ob-sql-batch-terminate
+(defvar org-sql-batch-terminate
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
         'postgres (format "\\echo %s\n" org-sql-session--batch-terminate))
   "Print the command batch termination as last command.")
-(defvar ob-sql-terminal-command-prefix
+(defvar org-sql-terminal-command-prefix
   (list 'sqlite "\\."
         'postgres "\\\\")
-  "Indentify a command for the SQL shell.")
+  "Identify a command for the SQL shell.")
 (defvar org-sql-environment
   (list 'postgres '(("PGPASSWORD" sql-password))))
 (defvar org-sql-session-clean-output nil
@@ -534,21 +535,6 @@ argument mechanism."
    vars)
   body)
 
-(defun org-sql-session-buffer-live-p (buffer)
-  "Return non-nil if the process associated with buffer is live.
-
-This redefines `sql-buffer-live-p' of sql.el, considering the terminal
-is valid even when `sql-interactive-mode' isn't set.  BUFFER can be a buffer
-object or a buffer name.  The buffer must be a live buffer, have a
-running process attached to it, and, if PRODUCT or CONNECTION are
-specified, its `sql-product' or `sql-connection' must match."
-
-  (let ((buffer (get-buffer buffer)))
-    (and buffer
-         (buffer-live-p buffer)
-         (let ((proc (get-buffer-process buffer)))
-           (and proc (memq (process-status proc) '(open run)))))))
-
 (defun org-babel-sql-session-connect (in-engine params session)
   "Start the SQL client of IN-ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
@@ -579,11 +565,7 @@ no longer needed while the session stays open."
           ;;          sql-database))
           (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
-    ;; I get a nil on sql-for-each-login on the first call
-    ;; to sql-interactive  at
-    ;; (if (sql-buffer-live-p ob-sql-buffer)
-    ;; so put sql-buffer-live-p aside
-    (if (org-sql-session-buffer-live-p ob-sql-buffer)
+    (if (org-babel-comint-buffer-livep ob-sql-buffer)
         (progn  ; set again the filter
           (set-process-filter (get-buffer-process ob-sql-buffer)
                               #'org-sql-session-comint-output-filter)
@@ -603,11 +585,11 @@ no longer needed while the session stays open."
         ;; then the welcoming message may show up
 
         (with-current-buffer (get-buffer ob-sql-buffer)
-					(let ((preamble (plist-get org-sql-session-preamble in-engine)))
-						(when preamble
-							(process-send-string ob-sql-buffer preamble)
-							(comint-send-input))))
-				(sleep-for 0.1) ; or the result of the preamble will be in the process filter
+          (let ((preamble (plist-get org-sql-session-preamble in-engine)))
+            (when preamble
+              (process-send-string ob-sql-buffer preamble)
+              (comint-send-input))))
+        (sleep-for 0.1) ; or the result of the preamble will be in the process filter
         ;; set the redirection filter
         (set-process-filter sql-term-proc
                             #'org-sql-session-comint-output-filter)
@@ -729,7 +711,7 @@ Finnally add the termination command."
          (terminal-command
           (concat "^\s*"
                   ;;(sql-get-product-feature sql-product :ob-sql-terminal-command))))
-                  (plist-get ob-sql-terminal-command-prefix in-engine))))
+                  (plist-get org-sql-terminal-command-prefix in-engine))))
      (mapconcat
       (lambda(s)
         (when (not
@@ -737,11 +719,11 @@ Finnally add the termination command."
           (concat (replace-regexp-in-string
                    "[\t]" "" ; filter tabs
                    (replace-regexp-in-string "--.*" "" s)) ;; remove comments.
-									;; Note: additional filtering is required for Vertica C-style comments.
+                  ;; Note: additional filtering is required for Vertica C-style comments.
                   (when (string-match terminal-command s) "\n"))))
       commands " " ))
    ";\n"
-   (plist-get ob-sql-batch-terminate in-engine)
+   (plist-get org-sql-batch-terminate in-engine)
    "\n" ))
 
 (defun org-sql-session-comint-output-filter (_proc string)
