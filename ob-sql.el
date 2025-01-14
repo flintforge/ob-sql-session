@@ -95,7 +95,7 @@
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
         'postgres (format "\\echo %s\n" org-sql-session--batch-terminate))
   "Print the command batch termination as last command.")
-(defvar ob-sql-terminal-command-prefix
+(defvar org-sql-terminal-command-prefix
   (list 'sqlite "\\."
         'postgres "\\\\")
   "Identify a command for the SQL shell.")
@@ -711,7 +711,7 @@ Finnally add the termination command."
          (terminal-command
           (concat "^\s*"
                   ;;(sql-get-product-feature sql-product :ob-sql-terminal-command))))
-                  (plist-get ob-sql-terminal-command-prefix in-engine))))
+                  (plist-get org-sql-terminal-command-prefix in-engine))))
      (mapconcat
       (lambda(s)
         (when (not
@@ -723,7 +723,7 @@ Finnally add the termination command."
                   (when (string-match terminal-command s) "\n"))))
       commands " " ))
    ";\n"
-   (plist-get ob-sql-batch-terminate in-engine)
+   (plist-get org-sql-batch-terminate in-engine)
    "\n" ))
 
 (defun org-sql-session-comint-output-filter (_proc string)
