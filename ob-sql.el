@@ -76,20 +76,20 @@
 ;;; Code:
 
 (require 'org-macs)
+(org-assert-version)
+
 (require 'ob)
 (require 'sql)
 
-(defvar sql-connection-alist)
-(defvar org-sql-session-command-terminated nil)
-(defvar org-babel-sql-out-file)
-(defvar org-babel-sql-session-start-time)
-
+(defvar org-sql-session-start-time)
 (defvar org-sql-session-preamble
-  (list 'postgres "\\set ON_ERROR_STOP 1
+  (list
+   'postgres "\\set ON_ERROR_STOP 1
 \\pset footer off
 \\pset pager off
 \\pset format unaligned")
   "Command preamble to run upon shell start.")
+(defvar org-sql-session-command-terminated nil)
 (defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 (defvar org-sql-batch-terminate
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
@@ -109,6 +109,8 @@
 (declare-function org-table-to-lisp "org-table" (&optional txt))
 (declare-function cygwin-convert-file-name-to-windows "cygw32.c" (file &optional absolute-p))
 (declare-function sql-set-product "sql" (product))
+
+(defvar sql-connection-alist)
 
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
   "Default header args."
@@ -289,8 +291,6 @@ This function is called by `org-babel-execute-src-block'."
          (session (cdr (assoc :session params)))
          (session-p (not (string= session "none")))
          (header-delim ""))
-
-    (setq org-babel-sql-out-file out-file)
 
     (if (or session-p org-babel-sql-run-comint-p)
         ;; run through comint
