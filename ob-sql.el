@@ -80,9 +80,6 @@
 (require 'sql)
 
 (defvar sql-connection-alist)
-(defvar org-sql-session-command-terminated nil)
-(defvar org-babel-sql-out-file)
-(defvar org-babel-sql-session-start-time)
 
 (defvar org-sql-session-preamble
   (list 'postgres "\\set ON_ERROR_STOP 1
@@ -90,7 +87,6 @@
 \\pset pager off
 \\pset format unaligned")
   "Command preamble to run upon shell start.")
-(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 (defvar ob-sql-batch-terminate
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
         'postgres (format "\\echo %s\n" org-sql-session--batch-terminate))
@@ -103,6 +99,9 @@
   (list 'postgres '(("PGPASSWORD" sql-password))))
 (defvar org-sql-session-clean-output nil
   "Store the regexp used to clear output (prompt1|termination|prompt2).")
+(defvar org-sql-session-start-time)
+(defvar org-sql-session-command-terminated nil)
+(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
 
 (declare-function org-table-import "org-table" (file arg))
 (declare-function orgtbl-to-csv "org-table" (table params))
@@ -118,19 +117,19 @@
   :group 'org-babel-sql
   :safe t)
 
-(defcustom org-babel-sql-run-comint-p 'nil
+(defcustom org-sql-run-comint-p 'nil
   "Run non-session SQL commands through comoint (or command line if nil)."
   :type '(boolean)
   :group 'org-babel-sql
   :safe t)
 
-(defcustom org-babel-sql-timeout '5.0
+(defcustom org-sql-timeout '5.0
   "Abort on timeout."
   :type '(number)
   :group 'org-babel-sql
   :safe t)
 
-(defcustom org-babel-sql-close-out-temp-buffer-p 'nil
+(defcustom org-sql-close-out-temp-buffer-p 'nil
   "Close sql-out-temp buffer."
   :type '(boolean)
   :group 'org-babel-sql
@@ -147,7 +146,7 @@
     (out-file    . :any))
   "Header arguments accepted.")
 
-(defun org-babel-sql-dbstring-mysql (host port user password database)
+(defun org-sql-dbstring-mysql (host port user password database)
   "Make MySQL command line arguments for database connection.
 nil arguments are ommited."
   (mapconcat
@@ -160,7 +159,7 @@ nil arguments are ommited."
                (when database (concat "-D" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-dbstring-postgresql (host port user database)
+(defun org-sql-dbstring-postgresql (host port user database)
   "Make PostgreSQL command line arguments for database connection.
 nil arguments are ommited."
   (mapconcat
@@ -172,7 +171,7 @@ nil arguments are ommited."
                (when database (concat "-d" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-dbstring-oracle (host port user password database)
+(defun org-sql-dbstring-oracle (host port user password database)
   "Make Oracle command line arguments for database connection.
 If HOST and PORT are nil then don't pass them.  This allows you
 to use names defined in your \"TNSNAMES\" file.  So you can
@@ -188,7 +187,7 @@ or <user>/<password>@<database> using its alias."
          (format "%s/%s@%s" user password database))
         (t (user-error "Missing information to connect to database"))))
 
-(defun org-babel-sql-dbstring-mssql (host user password database)
+(defun org-sql-dbstring-mssql (host user password database)
   "Make sqlcmd command line args for database connection.
 `sqlcmd' is the preferred command line tool to access Microsoft
 SQL Server on Windows and Linux platform."
@@ -201,7 +200,7 @@ SQL Server on Windows and Linux platform."
                (when database (format "-d \"%s\"" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-dbstring-sqsh (host user password database)
+(defun org-sql-dbstring-sqsh (host user password database)
   "Make sqsh command line args for database connection.
 sqsh is one method to access Sybase or MS SQL via Linux platform."
   (mapconcat
@@ -213,7 +212,7 @@ sqsh is one method to access Sybase or MS SQL via Linux platform."
                 (when database (format "-D \"%s\"" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-dbstring-vertica (host port user password database)
+(defun org-sql-dbstring-vertica (host port user password database)
   "Make Vertica command line args for database connection.
 nil arguments are ommited."
   (mapconcat
@@ -226,7 +225,7 @@ nil arguments are ommited."
                (when database (format "-d %s" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-dbstring-saphana (host port instance user password database)
+(defun org-sql-dbstring-saphana (host port instance user password database)
   "Make SAP HANA command line args for database connection.
 nil arguments are ommited."
   (mapconcat
@@ -240,7 +239,7 @@ nil arguments are ommited."
                (and database (format "-d %s" (shell-quote-argument database)))))
    " "))
 
-(defun org-babel-sql-convert-standard-filename (file)
+(defun org-sql-convert-standard-filename (file)
   "Convert FILE to OS standard file name.
 If in Cygwin environment, uses Cygwin specific function to
 convert the file name.  In a Windows-NT environment, do nothing.
@@ -290,15 +289,13 @@ This function is called by `org-babel-execute-src-block'."
          (session-p (not (string= session "none")))
          (header-delim ""))
 
-    (setq org-babel-sql-out-file out-file)
-
-    (if (or session-p org-babel-sql-run-comint-p)
+    (if (or session-p org-sql-run-comint-p)
         ;; run through comint
         (let ((sql--buffer
-               (org-babel-sql-session-connect in-engine params session)))
+               (org-sql-session-connect in-engine params session)))
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (erase-buffer))
-          (setq org-babel-sql-session-start-time (current-time))
+          (setq org-sql-session-start-time (current-time))
           (setq org-sql-session-command-terminated nil)
 
           (with-current-buffer (get-buffer sql--buffer)
@@ -349,14 +346,14 @@ This function is called by `org-babel-execute-src-block'."
                                  (org-babel-process-file-name out-file)))
                 (mssql (format "sqlcmd %s -s \"\t\" %s -i %s -o %s"
                                (or cmdline "")
-                               (org-babel-sql-dbstring-mssql
+                               (org-sql-dbstring-mssql
                                 dbhost dbuser dbpassword database)
-                               (org-babel-sql-convert-standard-filename
+                               (org-sql-convert-standard-filename
                                 (org-babel-process-file-name in-file))
-                               (org-babel-sql-convert-standard-filename
+                               (org-sql-convert-standard-filename
                                 (org-babel-process-file-name out-file))))
                 ((mysql mariadb) (format "mysql %s %s %s < %s > %s"
-                                         (org-babel-sql-dbstring-mysql
+                                         (org-sql-dbstring-mysql
                                           dbhost dbport dbuser dbpassword database)
                                          (if colnames-p "" "-N")
                                          (or cmdline "")
@@ -373,33 +370,33 @@ footer=off -F \"\t\"  %s -f %s -o %s %s"
                                              sql-postgres-program)
                                             "psql")
                                         (if colnames-p "" "-t")
-                                        (org-babel-sql-dbstring-postgresql
+                                        (org-sql-dbstring-postgresql
                                          dbhost dbport dbuser database)
                                         (org-babel-process-file-name in-file)
                                         (org-babel-process-file-name out-file)
                                         (or cmdline "")))
                 (sqsh (format "sqsh %s %s -i %s -o %s -m csv"
                               (or cmdline "")
-                              (org-babel-sql-dbstring-sqsh
+                              (org-sql-dbstring-sqsh
                                dbhost dbuser dbpassword database)
-                              (org-babel-sql-convert-standard-filename
+                              (org-sql-convert-standard-filename
                                (org-babel-process-file-name in-file))
-                              (org-babel-sql-convert-standard-filename
+                              (org-sql-convert-standard-filename
                                (org-babel-process-file-name out-file))))
                 (vertica (format "vsql %s -f %s -o %s %s"
-                                 (org-babel-sql-dbstring-vertica
+                                 (org-sql-dbstring-vertica
                                   dbhost dbport dbuser dbpassword database)
                                  (org-babel-process-file-name in-file)
                                  (org-babel-process-file-name out-file)
                                  (or cmdline "")))
                 (oracle (format
                          "sqlplus -s %s < %s > %s"
-                         (org-babel-sql-dbstring-oracle
+                         (org-sql-dbstring-oracle
                           dbhost dbport dbuser dbpassword database)
                          (org-babel-process-file-name in-file)
                          (org-babel-process-file-name out-file)))
                 (saphana (format "hdbsql %s -I %s -o %s %s"
-                                 (org-babel-sql-dbstring-saphana
+                                 (org-sql-dbstring-saphana
                                   dbhost dbport dbinstance dbuser dbpassword database)
                                  (org-babel-process-file-name in-file)
                                  (org-babel-process-file-name out-file)
@@ -475,7 +472,7 @@ SET COLSEP '|'
             (replace-match "")))
 
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
-        (when org-babel-sql-close-out-temp-buffer-p
+        (when org-sql-close-out-temp-buffer-p
           (kill-buffer (get-file-buffer out-file)))
         (org-babel-reassemble-table
          (mapcar (lambda (x)
@@ -501,12 +498,12 @@ the :engine header argument provided in INFO."
         (epilogue (cdr (assq :epilogue params))))
     (mapconcat 'identity
                (delq nil (list prologue
-                               (org-babel-sql-expand-vars
+                               (org-sql-expand-vars
                                 body (org-babel--get-vars params))
                                epilogue))
                "\n")))
 
-(defun org-babel-sql-expand-vars (body vars &optional sqlite)
+(defun org-sql-expand-vars (body vars &optional sqlite)
   "Expand the variables held in VARS in BODY.
 
 If SQLITE has been provided, prevent passing a format to
@@ -527,15 +524,15 @@ argument mechanism."
                                val (if sqlite
                                        nil
                                      '(:fmt (lambda (el) (if (stringp el)
-                                                        el
-                                                      (format "%S" el))))))))
+																												el
+																											(format "%S" el))))))))
                     data-file)
                 (if (stringp val) val (format "%S" val))))
             body t t)))
    vars)
   body)
 
-(defun org-babel-sql-session-connect (in-engine params session)
+(defun org-sql-session-connect (in-engine params session)
   "Start the SQL client of IN-ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
@@ -678,7 +675,7 @@ should also be prompted."
         (setq rpt (sql-make-progress-reporter nil "Login"))
         (with-current-buffer sql-buffer
           (let ((proc (get-buffer-process sqli-buffer))
-                (secs org-babel-sql-timeout)
+                (secs org-sql-timeout)
                 (step 0.2))
             (while (and proc
                         (memq (process-status proc) '(open run))
@@ -740,8 +737,8 @@ its message buffer"
   (when (or (string-match org-sql-session--batch-terminate string)
             (> (time-to-seconds
                 (time-subtract (current-time)
-                               org-babel-sql-session-start-time))
-               org-babel-sql-timeout))
+                               org-sql-session-start-time))
+               org-sql-timeout))
     (setq org-sql-session-command-terminated t))
 
   (with-current-buffer (get-buffer-create "*ob-sql-result*")
