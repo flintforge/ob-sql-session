@@ -75,8 +75,10 @@
 
 ;;; Code:
 
+(require 'org-macs)
 (require 'ob)
 (require 'sql)
+
 
 (defvar org-babel-sql-session-start-time)
 (defvar org-sql-session-preamble
@@ -323,9 +325,11 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (goto-char (point-min))
             ;; clear the output or prompt and termination
-            (let ((clean-output(plist-get org-sql-session-clean-output in-engine)))
-              (while (re-search-forward clean-output nil t)
-								(replace-match ""))
+            (let ((clear-output ;;(plist-get org-sql-session-clean-output in-engine)
+                   (sql-get-product-feature in-engine :org-sql-session-clean-output)
+                   ))
+              (while (re-search-forward clear-output nil t)
+                (replace-match ""))
               (write-file out-file))))
 
       ;; else, command line
@@ -467,7 +471,7 @@ SET COLSEP '|'
           (goto-char (point-min))
           ;; clear the output of prompt and termination
           (while (re-search-forward
-									(plist-get org-sql-session-clean-output in-engine)
+                  (sql-get-product-feature in-engine :org-sql-session-clean-output)
                   nil t)
             (replace-match "")))
 
@@ -538,38 +542,61 @@ argument mechanism."
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
-buffer."
+buffer.
+
+The buffer naming was shortened from
+*[session] engine://user@host/database*,
+that clearly identifies the connexion from Emacs,
+to *SQL [session]* in order to retrieve a session with its
+name alone, the other parameters in the header args beeing
+no longer needed while the session stays open."
   (sql-set-product in-engine)
-  (let* ((sql-server    (cdr (assoc :dbhost params)))
-	 ;;(sql-port      (cdr (assoc :port params)))
-         (sql-database  (cdr (assoc :database params)))
-         (sql-user      (cdr (assoc :dbuser params)))
-         (sql-password  (cdr (assoc :dbpassword params)))
-         (buffer-name (format "%s" (if (string= session "none") ""
-                                     (format "[%s]" session))))
-         (ob-sql-buffer (get-buffer (format "*SQL: %s*" buffer-name))))
+  (let* ( (sql-server    (cdr (assoc :dbhost params)))
+          ;; (sql-port      (cdr (assoc :port params)))
+          (sql-database  (cdr (assoc :database params)))
+          (sql-user      (cdr (assoc :dbuser params)))
+          (sql-password  (cdr (assoc :dbpassword params)))
+          (buffer-name (format "%s" (if (string= session "none") ""
+                                      (format "[%s]" session))))
+          ;; (buffer-name
+          ;;  (format "%s%s://%s%s/%s"
+          ;;          (if (string= session "none") "" (format "[%s] " session))
+          ;;          engine
+          ;;          (if sql-user (concat sql-user "@") "")
+          ;;          (if sql-server (concat sql-server ":") "")
+          ;;          sql-database))
+          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
-		(when (not (org-babel-comint-buffer-livep ob-sql-buffer))
-			;; initiate a new connection
-			(setq ob-sql-buffer              ; start the client
-						(org-babel-sql-connect in-engine buffer-name))
+    (if (org-babel-comint-buffer-livep ob-sql-buffer)
+        (progn  ; set again the filter
+          (set-process-filter (get-buffer-process ob-sql-buffer)
+                              #'org-sql-session-comint-output-filter)
+          ob-sql-buffer) ; and return the buffer
+      ;; otherwise initiate a new connection
+      (save-window-excursion
+        (setq ob-sql-buffer              ; start the client
+              (org-babel-sql-connect in-engine buffer-name)))
+      (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
+        (unless sql-term-proc
+          (user-error (format "SQL %s didn't start" in-engine)))
 
-			(let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
-				(unless sql-term-proc
-					(user-error (format "SQL %s didn't start" in-engine)))
+        ;; clear the welcoming message out of the output from the
+        ;; first command, in the case where we forgot quiet mode.
+        ;; we can't evaluate how long the connection will take
+        ;; so if quiet mode is off and the connexion takes time
+        ;; then the welcoming message may show up
 
-				;; run preamble
-				(with-current-buffer (get-buffer ob-sql-buffer)
-					(let ((preamble (plist-get org-sql-session-preamble in-engine)))
-						(when preamble
-							(process-send-string ob-sql-buffer preamble)
-							(comint-send-input))))
-				(sleep-for 0.1))) ; or the result of the preamble will be in the process filter
-		;; set again redirection filter
-		(set-process-filter (get-buffer-process ob-sql-buffer)
-												#'org-sql-session-comint-output-filter)
-		;; and return the buffer
-		ob-sql-buffer))
+        (with-current-buffer (get-buffer ob-sql-buffer)
+          (let ((preamble (plist-get org-sql-session-preamble in-engine)))
+            (when preamble
+              (process-send-string ob-sql-buffer preamble)
+              (comint-send-input))))
+        (sleep-for 0.1) ; or the result of the preamble will be in the process filter
+        ;; set the redirection filter
+        (set-process-filter sql-term-proc
+                            #'org-sql-session-comint-output-filter)
+        ;; return that buffer
+        (get-buffer ob-sql-buffer)))))
 
 (defun org-babel-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
@@ -596,12 +623,16 @@ should also be prompted."
           rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
-      (setq  org-sql-session-clean-output
-						 (plist-put org-sql-session-clean-output engine
-												(concat "\\(" prompt-regexp "\\)"
-																"\\|\\(" org-sql-session--batch-terminate "\n\\)"
-																(when prompt-cont-regexp
-																	(concat "\\|\\(" prompt-cont-regexp "\\)")))))
+      (plist-put org-sql-session-clean-output engine
+                 (concat "\\(" prompt-regexp "\\)"
+                         "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                         (when prompt-cont-regexp
+                           (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+      (sql-set-product-feature engine :org-sql-session-clean-output
+                               (concat "\\(" prompt-regexp "\\)"
+                                       "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                                       (when prompt-cont-regexp
+                                         (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
       ;; Get credentials.
       ;; either all fields are provided
@@ -613,6 +644,14 @@ should also be prompted."
                  (sql-get-product-feature engine :sqli-login)))
       ;; depending on client, password is forcefully prompted
 
+      ;; Connect to database.
+      ;; (let ((sql-user       (default-value 'sql-user))
+      ;;       (sql-password   (default-value 'sql-password))
+      ;;       (sql-server     (default-value 'sql-server))
+      ;;       (sql-database   (default-value 'sql-database))
+      ;;       (sql-port       (default-value 'sql-port))
+      ;;       (default-directory (or sql-default-directory default-directory)))
+
       ;; The password wallet returns a function
       ;; which supplies the password. (untested)
       (when (functionp sql-password)
@@ -623,7 +662,8 @@ should also be prompted."
       (let ((previous-session
              (get-buffer (format "*SQL: %s*" sql-cnx))))
         (when previous-session
-          (with-current-buffer previous-session (erase-buffer)))
+          (with-current-buffer
+              previous-session (erase-buffer)))
 
         (setq sqli-buffer
               (let ((process-environment (copy-sequence process-environment))
@@ -635,8 +675,7 @@ should also be prompted."
                          engine
                          (sql-get-product-feature engine :sqli-options)
                          (format "SQL: %s" sql-cnx))))
-
-        (setq sql-buffer (buffer-name sqli-buffer)) ;; set the global var
+        (setq sql-buffer (buffer-name sqli-buffer))
 
         (setq rpt (sql-make-progress-reporter nil "Login"))
         (with-current-buffer sql-buffer
@@ -655,7 +694,7 @@ should also be prompted."
           ;; no prompt, connexion failed (and process is terminated)
           (goto-char (point-max))
           (unless (re-search-backward prompt-regexp 0 t)
-            (user-error "Connection failed")))
+            (user-error "Connection failed"))) ;is this a _user_ error?
         ;;(run-hooks 'sql-login-hook) ; don't
         )
       (sql-progress-reporter-done rpt)
@@ -673,7 +712,8 @@ Finnally add the termination command."
    (let ((commands (split-string str "\n"))
          (terminal-command
           (concat "^\s*"
-									(plist-get org-sql-terminal-command-prefix in-engine))))
+                  ;;(sql-get-product-feature sql-product :ob-sql-terminal-command))))
+                  (plist-get org-sql-terminal-command-prefix in-engine))))
      (mapconcat
       (lambda(s)
         (when (not
