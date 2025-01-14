@@ -1,5 +1,7 @@
 ;;; tests.el --- Tests for ob-sql-session.el -*- lexical-binding: t -*-
 
+;;; TODO: verify files sql-in and -out-* 
+
 ;;; Code:
 
 (load-file "./ob-sql.el")
