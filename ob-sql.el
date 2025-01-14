@@ -76,18 +76,22 @@
 ;;; Code:
 
 (require 'org-macs)
+(org-assert-version)
 (require 'ob)
 (require 'sql)
 
-(defvar sql-connection-alist)
 
+(defvar org-babel-sql-session-start-time)
 (defvar org-sql-session-preamble
-  (list 'postgres "\\set ON_ERROR_STOP 1
+  (list
+   'postgres "\\set ON_ERROR_STOP 1
 \\pset footer off
 \\pset pager off
 \\pset format unaligned")
   "Command preamble to run upon shell start.")
-(defvar ob-sql-batch-terminate
+(defvar org-sql-session-command-terminated nil)
+(defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
+(defvar org-sql-batch-terminate
   (list 'sqlite (format ".print %s\n" org-sql-session--batch-terminate)
         'postgres (format "\\echo %s\n" org-sql-session--batch-terminate))
   "Print the command batch termination as last command.")
@@ -107,7 +111,8 @@
 (declare-function orgtbl-to-csv "org-table" (table params))
 (declare-function org-table-to-lisp "org-table" (&optional txt))
 (declare-function cygwin-convert-file-name-to-windows "cygw32.c" (file &optional absolute-p))
-(declare-function sql-set-product "sql" (product))
+
+(defvar sql-connection-alist)
 
 (defcustom org-babel-default-header-args:sql  '((:engine . "unset"))
   "Default header args."
@@ -532,7 +537,8 @@ argument mechanism."
    vars)
   body)
 
-(defun org-sql-session-connect (in-engine params session)
+
+(defun org-babel-sql-session-connect (in-engine params session)
   "Start the SQL client of IN-ENGINE if it has not.
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous

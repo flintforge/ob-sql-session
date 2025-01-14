@@ -198,9 +198,16 @@ database\nHGNC\nFlyBase\n"))
   "Expand variable."
   (pg-test "select $var as var;" "var\n33\n"))
 
+(ert-deftest pg-X:test-close-session()
+  (with-current-buffer "*SQL: [pg::tests]*" ; sqlite:///nil*"
+    (quit-process nil t)
+    (let ((kill-buffer-query-functions nil))
+      (kill-this-buffer))))
+
 ;; (eval-buffer)
 ;; (ert :new)
 ;; (ert t)
 ;; (ert-delete-all-tests)
 ;; (with-current-buffer "ob-sql.el" (save-buffer))
 ;; (progn (ert-delete-all-tests)(eval-buffer)(ert :new))
+ 
