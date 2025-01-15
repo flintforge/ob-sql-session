@@ -619,11 +619,12 @@ should also be prompted."
           rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
-      (plist-put org-sql-session-clean-output engine
-                 (concat "\\(" prompt-regexp "\\)"
-                         "\\|\\(" org-sql-session--batch-terminate "\n\\)"
-                         (when prompt-cont-regexp
-                           (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+      (setq org-sql-session-clean-output
+						(plist-put org-sql-session-clean-output engine
+											 (concat "\\(" prompt-regexp "\\)"
+															 "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+															 (when prompt-cont-regexp
+																 (concat "\\|\\(" prompt-cont-regexp "\\)")))))
 
       ;; Get credentials.
       ;; either all fields are provided
