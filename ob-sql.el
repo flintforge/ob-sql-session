@@ -192,8 +192,8 @@ or <user>/<password>@<database> using its alias."
 
 (defun org-sql-dbstring-mssql (host user password database)
   "Make sqlcmd command line args for database connection.
-	`sqlcmd' is the preferred command line tool to access Microsoft
-	SQL Server on Windows and Linux platform."
+`sqlcmd' is the preferred command line tool to access Microsoft
+SQL Server on Windows and Linux platform."
   (mapconcat
    #'identity
    (delq nil
