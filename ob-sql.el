@@ -205,7 +205,7 @@ or <user>/<password>@<database> using its alias."
 
 (defun org-sql-dbstring-sqsh (host user password database)
   "Make sqsh command line args for database connection.
-	sqsh is one method to access Sybase or MS SQL via Linux platform."
+sqsh is one method to access Sybase or MS SQL via Linux platform."
   (mapconcat
    #'identity
    (delq nil
