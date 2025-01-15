@@ -1,7 +1,7 @@
 ;;; tests.el --- Tests for ob-sql-session.el -*- lexical-binding: t -*-
 
 ;;; TODO: verify files sql-in and -out-*
-
+;;; tests are according to the the lexicographic order of the function names
 ;;; Code:
 
 (load-file "./ob-sql.el")
@@ -53,7 +53,6 @@ Assume the source block is at POSITION if non-nil."
                     (string= lang "sql-session"))))))
     (funcall body)))
 
-
 (defun babel-block-test (setup header code expect)
   "Given SETUP function, execute SQL CODE block with HEADER.
 Compare the result against EXPECT."
@@ -79,27 +78,27 @@ Compare the result against EXPECT."
    #'setup "sql :engine sqlite :session sqlite::tests :results raw"
    code expect))
 
-(ert-deftest sqlite-000:test-header ()
+(ert-deftest 000-sqlite:test-header ()
   "Create table."
   (sqlite-test ".headers off" nil))
 
 
-(ert-deftest sqlite-001:test-create ()
+(ert-deftest 001-sqlite:test-create ()
   "Create table."
   (sqlite-test ".headers off
 
 create table test(one varchar(10), two int);" nil))
 
-(ert-deftest sqlite-002:test-insert ()
+(ert-deftest 002-sqlite:test-insert ()
   "Insert into table."
   (sqlite-test "insert into test values(\'hello\',\'world\');" nil))
 
-(ert-deftest sqlite-003:test-select ()
+(ert-deftest 003-sqlite:test-select ()
   "Select from table."
   (sqlite-test "select * from test;"
                "hello|world\n"))
 
-(ert-deftest sqlite-004:test-filter-tabs ()
+(ert-deftest 004-sqlite:test-filter-tabs ()
   "Insert with tabs."
   (sqlite-test "
       --create table test(x,y);
@@ -133,12 +132,12 @@ create table test(one varchar(10), two int);" nil))
 ;;    "Parse error: near \".\": syntax error\n  .headers on       .bail on " ;  select 1; \n  ^--- error here"
 ;;    )) ;; variations expected between sqlite versions
 
-(ert-deftest sqlite-005a:test-commands ()
+(ert-deftest 005a-sqlite:test-commands ()
   (sqlite-test
    ".headers on
 " nil))
 
-(ert-deftest sqlite-005b:test-header-on ()
+(ert-deftest 005b-sqlite:test-header-on ()
   (sqlite-test
    ".headers on
 --create table test(x,y);
@@ -155,15 +154,6 @@ sqlite|3.4
 ;; additionally, an error after a command can clutter the next shell
 ;;
 
-(ert-deftest sqlite-006:drop ()
-  (sqlite-test "Drop table test;" nil))
-
-(ert-deftest sqlite-X:test-close-session()
-  (with-current-buffer "*SQL: [sqlite::tests]*" ; sqlite:///nil*"
-    (quit-process nil t)
-    (let ((kill-buffer-query-functions nil))
-      (kill-this-buffer))))
-
 (defun pg-test (code expect)
   "Test Postgres SQL CODE, with EXPECT 'ed result."
   (babel-block-test
@@ -179,15 +169,24 @@ sqlite|3.4
 :session pg::tests"
    code expect))
 
-(ert-deftest pg-001:test-session-var-set ()
+(ert-deftest 006-sqlite:drop ()
+  (sqlite-test "Drop table test;" nil))
+
+(ert-deftest X-sqlite:test-close-session()
+  (with-current-buffer "*SQL: [sqlite::tests]*" ; sqlite:///nil*"
+    (quit-process nil t)
+    (let ((kill-buffer-query-functions nil))
+      (kill-this-buffer))))
+
+(ert-deftest 001-pg:test-session-var-set ()
   "Select in a table."
   (pg-test-session "\\set id10 10 \n \\set id13 13" nil))
 
-(ert-deftest pg-002:test-session-var-read ()
+(ert-deftest 002-pg:test-session-var-read ()
   "Select in a table."
   (pg-test-session "select :id10 as A,:id13 as B;" "a|b\n10|13\n"))
 
-(ert-deftest pg-003:test-create-insert-select ()
+(ert-deftest 003-pg:test-create-insert-select ()
   "Select in a table."
   (pg-test "DROP TABLE if exists publications;
 CREATE TABLE publications (id int2, database text);
@@ -197,11 +196,11 @@ CREATE TABLE
 INSERT 0 2
 database\nHGNC\nFlyBase\n"))
 
-(ert-deftest pg-004:test-expand-variable ()
+(ert-deftest 004-pg:test-expand-variable ()
   "Expand variable."
   (pg-test "select $var as var;" "var\n33\n"))
 
-(ert-deftest pg-X:test-close-session()
+(ert-deftest X-pg:test-close-session()
   (with-current-buffer "*SQL: [pg::tests]*" ; sqlite:///nil*"
     (quit-process nil t)
     (let ((kill-buffer-query-functions nil))
