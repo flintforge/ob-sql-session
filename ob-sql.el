@@ -291,7 +291,6 @@ This function is called by `org-babel-execute-src-block'."
                        (org-babel-temp-file "sql-out-")))
          (session (cdr (assoc :session params)))
          (session-p (not (string= session "none")))
-				 (clean-output (plist-get org-sql-session-clean-output in-engine))
          (header-delim ""))
 
     (if (or session-p org-sql-run-comint-p)
@@ -326,8 +325,9 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (goto-char (point-min))
             ;; clear the output or prompt and termination
-            (while (re-search-forward clean-output nil t)
-              (replace-match ""))
+						(let ((clean-output (plist-get org-sql-session-clean-output in-engine)))
+							(while (re-search-forward clean-output nil t)
+								(replace-match "")))
             (write-file out-file)))
 
       ;; else, command line
@@ -464,12 +464,6 @@ SET COLSEP '|'
               (goto-char (point-max))
               (forward-char -1))
             (write-file out-file))))
-
-        (when session-p
-          (goto-char (point-min))
-          ;; clear the output of prompt and termination
-          (while (re-search-forward clean-output nil t)
-            (replace-match "")))
 
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
         (when org-sql-close-out-temp-buffer-p
