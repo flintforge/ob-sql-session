@@ -504,7 +504,6 @@ If SQLITE has been provided, prevent passing a format to
 `orgtbl-to-csv'.  This prevents overriding the default format, which if
 there were commas in the context of the table broke the table as an
 argument mechanism."
-
   (mapc
    (lambda (pair)
      (setq body
@@ -540,15 +539,14 @@ that clearly identifies the connexion from Emacs,
 to *SQL [session]* in order to retrieve a session with its
 name alone, the other parameters in the header args beeing
 no longer needed while the session stays open."
-  (sql-set-product in-engine)
-  (let* ( (sql-server    (cdr (assoc :dbhost params)))
-          ;; (sql-port      (cdr (assoc :port params)))
-          (sql-database  (cdr (assoc :database params)))
-          (sql-user      (cdr (assoc :dbuser params)))
-          (sql-password  (cdr (assoc :dbpassword params)))
-          (buffer-name (format "%s" (if (string= session "none") ""
-                                      (format "[%s]" session))))
-          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
+  (let* ((sql-server    (cdr (assoc :dbhost params)))
+         ;; (sql-port      (cdr (assoc :port params)))
+         (sql-database  (cdr (assoc :database params)))
+         (sql-user      (cdr (assoc :dbuser params)))
+         (sql-password  (cdr (assoc :dbpassword params)))
+         (buffer-name (format "%s" (if (string= session "none") ""
+                                     (format "[%s]" session))))
+         (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     (if (org-babel-comint-buffer-livep ob-sql-buffer)
         (progn  ; set again the filter
@@ -611,7 +609,7 @@ should also be prompted."
       ;; either all fields are provided
       ;; or there's a specific case were no login is needed
       ;; or trigger the prompt
-      (or (and sql-database sql-user sql-server ) ;sql-port?
+      (or (and sql-database sql-user sql-server)
           (eq sql-product 'sqlite) ;; sqlite allows in-memory db, w/o login
           (apply #'sql-get-login
                  (sql-get-product-feature engine :sqli-login)))
