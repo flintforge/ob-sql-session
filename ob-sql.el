@@ -84,7 +84,8 @@
    'postgres "\\set ON_ERROR_STOP 1
 \\pset footer off
 \\pset pager off
-\\pset format unaligned")
+\\pset format unaligned"
+   'mysql "\\n")
   "Command preamble to run upon shell start.")
 (defvar org-sql-session-command-terminated nil)
 (defvar org-sql-session--batch-terminate  "---#"  "To print at the end of a command batch.")
@@ -94,8 +95,9 @@
   "Print the command batch termination as last command.")
 (defvar org-sql-terminal-command-prefix
   (list 'sqlite "\\."
-        'postgres "\\\\")
-  "Identify a command for the SQL shell.")
+        'postgres "\\\\"
+				'mysql "\\\!")
+	"Identify a command for the SQL shell.")
 (defvar org-sql-environment
   (list 'postgres '(("PGPASSWORD" sql-password))))
 (defvar org-sql-session-clean-output nil
