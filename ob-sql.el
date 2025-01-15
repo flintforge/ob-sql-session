@@ -440,7 +440,8 @@ SET COLSEP '|'
         (progn (insert-file-contents-literally out-file) (buffer-string)))
       (with-temp-buffer
         (cond
-         ((memq in-engine '(dbi sqlite mysql postgres postgresql saphana sqsh vertica))
+         (
+					(memq in-engine '(dbi sqlite mysql postgres postgresql saphana sqsh vertica))
           ;; Add header row delimiter after column-names header in first line
           (when colnames-p
 						(with-temp-buffer
@@ -449,22 +450,9 @@ SET COLSEP '|'
 							(forward-line 1)
 							(insert "-\n")
 							(setq header-delim "-")
-							(write-file out-file))))
-         (t
-          ;; Need to figure out the delimiter for the header row
-          (with-temp-buffer
-            (insert-file-contents out-file)
-            (goto-char (point-min))
-            (when (re-search-forward "^\\(-+\\)[^-]" nil t)
-              (setq header-delim (match-string-no-properties 1)))
-            (goto-char (point-max))
-            (forward-char -1)
-            (while (looking-at "\n")
-              (delete-char 1)
-              (goto-char (point-max))
-              (forward-char -1))
-            (write-file out-file))))
+							))))
 
+				(write-file out-file)
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
         (when org-sql-close-out-temp-buffer-p
           (kill-buffer (get-file-buffer out-file)))
