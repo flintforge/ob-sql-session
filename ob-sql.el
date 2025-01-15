@@ -75,7 +75,6 @@
 
 ;;; Code:
 
-(require 'org-macs)
 (require 'ob)
 (require 'sql)
 
