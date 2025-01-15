@@ -151,7 +151,7 @@
 
 (defun org-sql-dbstring-mysql (host port user password database)
   "Make MySQL command line arguments for database connection.
-	nil arguments are ommited."
+nil arguments are ommited."
   (mapconcat
    #'identity
    (delq nil
@@ -164,7 +164,7 @@
 
 (defun org-sql-dbstring-postgresql (host port user database)
   "Make PostgreSQL command line arguments for database connection.
-	nil arguments are ommited."
+nil arguments are ommited."
   (mapconcat
    #'identity
    (delq nil
