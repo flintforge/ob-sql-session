@@ -1,6 +1,6 @@
 ;;; tests.el --- Tests for ob-sql-session.el -*- lexical-binding: t -*-
 
-;;; TODO: verify files sql-in and -out-* 
+;;; TODO: verify files sql-in and -out-*
 
 ;;; Code:
 
@@ -207,8 +207,7 @@ database\nHGNC\nFlyBase\n"))
     (let ((kill-buffer-query-functions nil))
       (kill-this-buffer))))
 
-;; (eval-buffer)
-;; (ert :new)
+;; (progn (eval-buffer) (ert :new))
 ;; (ert t)
 ;; (ert-delete-all-tests)
 ;; (with-current-buffer "ob-sql.el" (save-buffer))

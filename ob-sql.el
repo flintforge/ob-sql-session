@@ -548,13 +548,6 @@ no longer needed while the session stays open."
           (sql-password  (cdr (assoc :dbpassword params)))
           (buffer-name (format "%s" (if (string= session "none") ""
                                       (format "[%s]" session))))
-          ;; (buffer-name
-          ;;  (format "%s%s://%s%s/%s"
-          ;;          (if (string= session "none") "" (format "[%s] " session))
-          ;;          engine
-          ;;          (if sql-user (concat sql-user "@") "")
-          ;;          (if sql-server (concat sql-server ":") "")
-          ;;          sql-database))
           (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     (if (org-babel-comint-buffer-livep ob-sql-buffer)
@@ -569,12 +562,6 @@ no longer needed while the session stays open."
       (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
         (unless sql-term-proc
           (user-error (format "SQL %s didn't start" in-engine)))
-
-        ;; clear the welcoming message out of the output from the
-        ;; first command, in the case where we forgot quiet mode.
-        ;; we can't evaluate how long the connection will take
-        ;; so if quiet mode is off and the connexion takes time
-        ;; then the welcoming message may show up
 
         (with-current-buffer (get-buffer ob-sql-buffer)
           (let ((preamble (plist-get org-sql-session-preamble in-engine)))
@@ -630,14 +617,6 @@ should also be prompted."
                  (sql-get-product-feature engine :sqli-login)))
       ;; depending on client, password is forcefully prompted
 
-      ;; Connect to database.
-      ;; (let ((sql-user       (default-value 'sql-user))
-      ;;       (sql-password   (default-value 'sql-password))
-      ;;       (sql-server     (default-value 'sql-server))
-      ;;       (sql-database   (default-value 'sql-database))
-      ;;       (sql-port       (default-value 'sql-port))
-      ;;       (default-directory (or sql-default-directory default-directory)))
-
       ;; The password wallet returns a function
       ;; which supplies the password. (untested)
       (when (functionp sql-password)
@@ -688,7 +667,7 @@ should also be prompted."
 
 (defun org-sql-session-format-query (str in-engine)
   "Process then send the command STR to the SQL process.
-Provide ENGINE to retrieve product features.
+Provide IN-ENGINE to retrieve product features.
 Carefully separate client commands from SQL commands
 Concatenate SQL commands as one line is one way to stop on error.
 Otherwise the entire batch will be emitted no matter what.
