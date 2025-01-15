@@ -291,6 +291,7 @@ This function is called by `org-babel-execute-src-block'."
                        (org-babel-temp-file "sql-out-")))
          (session (cdr (assoc :session params)))
          (session-p (not (string= session "none")))
+				 (clean-output (plist-get org-sql-session-clean-output in-engine))
          (header-delim ""))
 
     (if (or session-p org-sql-run-comint-p)
@@ -325,12 +326,9 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (goto-char (point-min))
             ;; clear the output or prompt and termination
-            (let ((clear-output ;;(plist-get org-sql-session-clean-output in-engine)
-                   (sql-get-product-feature in-engine :org-sql-session-clean-output)
-                   ))
-              (while (re-search-forward clear-output nil t)
-                (replace-match ""))
-              (write-file out-file))))
+            (while (re-search-forward clean-output nil t)
+              (replace-match ""))
+            (write-file out-file)))
 
       ;; else, command line
       (let* ((cmdline (cdr (assq :cmdline params)))
@@ -470,9 +468,7 @@ SET COLSEP '|'
         (when session-p
           (goto-char (point-min))
           ;; clear the output of prompt and termination
-          (while (re-search-forward
-                  (sql-get-product-feature in-engine :org-sql-session-clean-output)
-                  nil t)
+          (while (re-search-forward clean-output nil t)
             (replace-match "")))
 
         (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
@@ -628,11 +624,6 @@ should also be prompted."
                          "\\|\\(" org-sql-session--batch-terminate "\n\\)"
                          (when prompt-cont-regexp
                            (concat "\\|\\(" prompt-cont-regexp "\\)"))))
-      (sql-set-product-feature engine :org-sql-session-clean-output
-                               (concat "\\(" prompt-regexp "\\)"
-                                       "\\|\\(" org-sql-session--batch-terminate "\n\\)"
-                                       (when prompt-cont-regexp
-                                         (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
       ;; Get credentials.
       ;; either all fields are provided
