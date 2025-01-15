@@ -538,30 +538,17 @@ argument mechanism."
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
-buffer.
+buffer."
 
-The buffer naming was shortened from
-*[session] engine://user@host/database*,
-that clearly identifies the connexion from Emacs,
-to *SQL [session]* in order to retrieve a session with its
-name alone, the other parameters in the header args beeing
-no longer needed while the session stays open."
-  (sql-set-product in-engine)
-  (let* ( (sql-server    (cdr (assoc :dbhost params)))
-          ;; (sql-port      (cdr (assoc :port params)))
-          (sql-database  (cdr (assoc :database params)))
-          (sql-user      (cdr (assoc :dbuser params)))
-          (sql-password  (cdr (assoc :dbpassword params)))
-          (buffer-name (format "%s" (if (string= session "none") ""
-                                      (format "[%s]" session))))
-          ;; (buffer-name
-          ;;  (format "%s%s://%s%s/%s"
-          ;;          (if (string= session "none") "" (format "[%s] " session))
-          ;;          engine
-          ;;          (if sql-user (concat sql-user "@") "")
-          ;;          (if sql-server (concat sql-server ":") "")
-          ;;          sql-database))
-          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
+  ;; (sql-set-product in-engine)
+  (let* ((sql-server    (cdr (assoc :dbhost params)))
+         ;; (sql-port      (cdr (assoc :port params)))
+         (sql-database  (cdr (assoc :database params)))
+         (sql-user      (cdr (assoc :dbuser params)))
+         (sql-password  (cdr (assoc :dbpassword params)))
+         (buffer-name (format "%s" (if (string= session "none") ""
+                                     (format "[%s]" session))))
+         (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     (if (org-babel-comint-buffer-livep ob-sql-buffer)
         (progn  ; set again the filter
@@ -571,28 +558,23 @@ no longer needed while the session stays open."
       ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              (org-babel-sql-connect in-engine buffer-name)))
-      (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
-        (unless sql-term-proc
-          (user-error (format "SQL %s didn't start" in-engine)))
+              (org-babel-sql-connect in-engine buffer-name))
+        (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
+          (unless sql-term-proc
+            (user-error (format "SQL %s didn't start" in-engine)))
 
-        ;; clear the welcoming message out of the output from the
-        ;; first command, in the case where we forgot quiet mode.
-        ;; we can't evaluate how long the connection will take
-        ;; so if quiet mode is off and the connexion takes time
-        ;; then the welcoming message may show up
-
-        (with-current-buffer (get-buffer ob-sql-buffer)
-          (let ((preamble (plist-get org-sql-session-preamble in-engine)))
-            (when preamble
-              (process-send-string ob-sql-buffer preamble)
-              (comint-send-input))))
-        (sleep-for 0.1) ; or the result of the preamble will be in the process filter
-        ;; set the redirection filter
-        (set-process-filter sql-term-proc
-                            #'org-sql-session-comint-output-filter)
-        ;; return that buffer
-        (get-buffer ob-sql-buffer)))))
+					;; preamble commands
+          (with-current-buffer (get-buffer ob-sql-buffer)
+            (let ((preamble (plist-get org-sql-session-preamble in-engine)))
+              (when preamble
+                (process-send-string ob-sql-buffer preamble)
+                (comint-send-input))))
+          (sleep-for 0.1) ; or the result of the preamble will be in the process filter
+          ;; set the redirection filter
+          (set-process-filter sql-term-proc
+                              #'org-sql-session-comint-output-filter)
+          ;; return that buffer
+          (get-buffer ob-sql-buffer))))))
 
 (defun org-babel-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
