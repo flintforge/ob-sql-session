@@ -37,6 +37,23 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
+    services:
+			mariadb:
+		  	image: mariadb:latest
+				env:
+					DATABASE_HOST: 127.0.0.1
+					MARIADB_DATABASE: db
+					MARIADB_USER: root
+					MARIADB_ROOT_PASSWORD: mysql
+					MARIADB_PASSWORD: mysql
+  			ports:
+					- 3306:3306
+				options: >
+				  --health-cmd="healthcheck.sh
+					--connect --innodb_initialized"
+					--health-interval=10s --health-timeout=5s --health-retries=3
+
+
     steps:
     - uses: actions/checkout@v4
     - uses: purcell/setup-emacs@master
