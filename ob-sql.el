@@ -285,7 +285,6 @@ This function is called by `org-babel-execute-src-block'."
          (dbpassword (org-babel-find-db-connection-param params :dbpassword))
          (database   (org-babel-find-db-connection-param params :database))
          (dbinstance (org-babel-find-db-connection-param params :dbinstance))
-				 (clean-output (plist-get org-sql-session-clean-output in-engine))
          (colnames-p (not (equal "no" (cdr (assq :colnames params)))))
          (in-file (org-babel-temp-file "sql-in-"))
          (out-file (or (cdr (assq :out-file params))
@@ -326,91 +325,94 @@ This function is called by `org-babel-execute-src-block'."
           (with-current-buffer (get-buffer-create "*ob-sql-result*")
             (goto-char (point-min))
             ;; clear the output or prompt and termination
-            (while (re-search-forward clean-output nil t)
-              (replace-match ""))
-            (write-file out-file)))
+            (let ((clear-output ;;(plist-get org-sql-session-clean-output in-engine)
+                   (sql-get-product-feature in-engine :org-sql-session-clean-output)
+                   ))
+              (while (re-search-forward clear-output nil t)
+                (replace-match ""))
+              (write-file out-file))))
 
-			;; else, command line
-			(let* ((cmdline (cdr (assq :cmdline params)))
-						 (command
-							(cl-case in-engine
-								(dbi (format "dbish --batch %s < %s | sed '%s' > %s"
-														 (or cmdline "")
-														 (org-babel-process-file-name in-file)
-														 "/^+/d;s/^|//;s/(NULL)/ /g;$d"
-														 (org-babel-process-file-name out-file)))
-								(sqlite (format "sqlite3 < %s > %s"
-																(org-babel-process-file-name in-file)
-																(org-babel-process-file-name out-file)))
-								(monetdb (format "mclient -f tab %s < %s > %s"
-																 (or cmdline "")
-																 (org-babel-process-file-name in-file)
-																 (org-babel-process-file-name out-file)))
-								(mssql (format "sqlcmd %s -s \"\t\" %s -i %s -o %s"
-															 (or cmdline "")
-															 (org-sql-dbstring-mssql
-																dbhost dbuser dbpassword database)
-															 (org-sql-convert-standard-filename
-																(org-babel-process-file-name in-file))
-															 (org-sql-convert-standard-filename
-																(org-babel-process-file-name out-file))))
-								((mysql mariadb) (format "mysql %s %s %s < %s > %s"
-																				 (org-sql-dbstring-mysql
-																					dbhost dbport dbuser dbpassword database)
-																				 (if colnames-p "" "-N")
-																				 (or cmdline "")
-																				 (org-babel-process-file-name in-file)
-																				 (org-babel-process-file-name out-file)))
-								((postgresql postgres) (format
-																				"%s%s --set=\"ON_ERROR_STOP=1\" %s -A -P \
+      ;; else, command line
+      (let* ((cmdline (cdr (assq :cmdline params)))
+             (command
+              (cl-case in-engine
+                (dbi (format "dbish --batch %s < %s | sed '%s' > %s"
+                             (or cmdline "")
+                             (org-babel-process-file-name in-file)
+                             "/^+/d;s/^|//;s/(NULL)/ /g;$d"
+                             (org-babel-process-file-name out-file)))
+                (sqlite (format "sqlite3 < %s > %s"
+                                (org-babel-process-file-name in-file)
+                                (org-babel-process-file-name out-file)))
+                (monetdb (format "mclient -f tab %s < %s > %s"
+                                 (or cmdline "")
+                                 (org-babel-process-file-name in-file)
+                                 (org-babel-process-file-name out-file)))
+                (mssql (format "sqlcmd %s -s \"\t\" %s -i %s -o %s"
+                               (or cmdline "")
+                               (org-sql-dbstring-mssql
+                                dbhost dbuser dbpassword database)
+                               (org-sql-convert-standard-filename
+                                (org-babel-process-file-name in-file))
+                               (org-sql-convert-standard-filename
+                                (org-babel-process-file-name out-file))))
+                ((mysql mariadb) (format "mysql %s %s %s < %s > %s"
+                                         (org-sql-dbstring-mysql
+                                          dbhost dbport dbuser dbpassword database)
+                                         (if colnames-p "" "-N")
+                                         (or cmdline "")
+                                         (org-babel-process-file-name in-file)
+                                         (org-babel-process-file-name out-file)))
+                ((postgresql postgres) (format
+                                        "%s%s --set=\"ON_ERROR_STOP=1\" %s -A -P \
 footer=off -F \"\t\"  %s -f %s -o %s %s"
-																				(if dbpassword
-																						(format "PGPASSWORD=%s "
-																										(shell-quote-argument dbpassword))
-																					"")
-																				(or (bound-and-true-p
-																						 sql-postgres-program)
-																						"psql")
-																				(if colnames-p "" "-t")
-																				(org-sql-dbstring-postgresql
-																				 dbhost dbport dbuser database)
-																				(org-babel-process-file-name in-file)
-																				(org-babel-process-file-name out-file)
-																				(or cmdline "")))
-								(sqsh (format "sqsh %s %s -i %s -o %s -m csv"
-															(or cmdline "")
-															(org-sql-dbstring-sqsh
-															 dbhost dbuser dbpassword database)
-															(org-sql-convert-standard-filename
-															 (org-babel-process-file-name in-file))
-															(org-sql-convert-standard-filename
-															 (org-babel-process-file-name out-file))))
-								(vertica (format "vsql %s -f %s -o %s %s"
-																 (org-sql-dbstring-vertica
-																	dbhost dbport dbuser dbpassword database)
-																 (org-babel-process-file-name in-file)
-																 (org-babel-process-file-name out-file)
-																 (or cmdline "")))
-								(oracle (format
-												 "sqlplus -s %s < %s > %s"
-												 (org-sql-dbstring-oracle
-													dbhost dbport dbuser dbpassword database)
-												 (org-babel-process-file-name in-file)
-												 (org-babel-process-file-name out-file)))
-								(saphana (format "hdbsql %s -I %s -o %s %s"
-																 (org-sql-dbstring-saphana
-																	dbhost dbport dbinstance dbuser dbpassword database)
-																 (org-babel-process-file-name in-file)
-																 (org-babel-process-file-name out-file)
-																 (or cmdline "")))
-								(t (user-error "No support for the %s SQL engine" engine)))))
+                                        (if dbpassword
+                                            (format "PGPASSWORD=%s "
+                                                    (shell-quote-argument dbpassword))
+                                          "")
+                                        (or (bound-and-true-p
+                                             sql-postgres-program)
+                                            "psql")
+                                        (if colnames-p "" "-t")
+                                        (org-sql-dbstring-postgresql
+                                         dbhost dbport dbuser database)
+                                        (org-babel-process-file-name in-file)
+                                        (org-babel-process-file-name out-file)
+                                        (or cmdline "")))
+                (sqsh (format "sqsh %s %s -i %s -o %s -m csv"
+                              (or cmdline "")
+                              (org-sql-dbstring-sqsh
+                               dbhost dbuser dbpassword database)
+                              (org-sql-convert-standard-filename
+                               (org-babel-process-file-name in-file))
+                              (org-sql-convert-standard-filename
+                               (org-babel-process-file-name out-file))))
+                (vertica (format "vsql %s -f %s -o %s %s"
+                                 (org-sql-dbstring-vertica
+                                  dbhost dbport dbuser dbpassword database)
+                                 (org-babel-process-file-name in-file)
+                                 (org-babel-process-file-name out-file)
+                                 (or cmdline "")))
+                (oracle (format
+                         "sqlplus -s %s < %s > %s"
+                         (org-sql-dbstring-oracle
+                          dbhost dbport dbuser dbpassword database)
+                         (org-babel-process-file-name in-file)
+                         (org-babel-process-file-name out-file)))
+                (saphana (format "hdbsql %s -I %s -o %s %s"
+                                 (org-sql-dbstring-saphana
+                                  dbhost dbport dbinstance dbuser dbpassword database)
+                                 (org-babel-process-file-name in-file)
+                                 (org-babel-process-file-name out-file)
+                                 (or cmdline "")))
+                (t (user-error "No support for the %s SQL engine" engine)))))
 
-				(progn
-					(with-temp-file in-file
-						(insert
-						 (pcase in-engine
-							 (`dbi "/format partbox\n")
-							 (`oracle "SET PAGESIZE 50000
+        (progn
+          (with-temp-file in-file
+            (insert
+             (pcase in-engine
+               (`dbi "/format partbox\n")
+               (`oracle "SET PAGESIZE 50000
 SET NEWPAGE 0
 SET TAB OFF
 SET SPACE 0
@@ -424,25 +426,25 @@ SET MARKUP HTML OFF SPOOL OFF
 SET COLSEP '|'
 
 ")
-							 ((or `mssql `sqsh) "SET NOCOUNT ON
+               ((or `mssql `sqsh) "SET NOCOUNT ON
 
 ")
-							 (`vertica "\\a\n")
-							 (_ ""))
-						 ;; "sqsh" requires "go" inserted at EOF.
-						 (if (string= engine "sqsh") "\ngo" "")
-						 (org-babel-expand-body:sql body params))) ;; insert body
-					(org-babel-eval command ""))))
+               (`vertica "\\a\n")
+               (_ ""))
+             ;; "sqsh" requires "go" inserted at EOF.
+             (if (string= engine "sqsh") "\ngo" "")
+             (org-babel-expand-body:sql body params))) ;; insert body
+          (org-babel-eval command ""))))
 
-		;; collect results
-		(org-babel-result-cond result-params
-			(with-temp-buffer
-				(progn (insert-file-contents-literally out-file) (buffer-string)))
-			(with-temp-buffer
-				(cond
-				 ((memq in-engine '(dbi sqlite mysql postgres postgresql saphana sqsh vertica))
-					;; Add header row delimiter after column-names header in first line
-					(when colnames-p
+    ;; collect results
+    (org-babel-result-cond result-params
+      (with-temp-buffer
+        (progn (insert-file-contents-literally out-file) (buffer-string)))
+      (with-temp-buffer
+        (cond
+         ((memq in-engine '(dbi sqlite mysql postgres postgresql saphana sqsh vertica))
+          ;; Add header row delimiter after column-names header in first line
+          (when colnames-p
 						(with-temp-buffer
 							(insert-file-contents out-file)
 							(goto-char (point-min))
@@ -450,40 +452,42 @@ SET COLSEP '|'
 							(insert "-\n")
 							(setq header-delim "-")
 							(write-file out-file))))
-				 (t
-					;; Need to figure out the delimiter for the header row
-					(with-temp-buffer
-						(insert-file-contents out-file)
-						(goto-char (point-min))
-						(when (re-search-forward "^\\(-+\\)[^-]" nil t)
-							(setq header-delim (match-string-no-properties 1)))
-						(goto-char (point-max))
-						(forward-char -1)
-						(while (looking-at "\n")
-							(delete-char 1)
-							(goto-char (point-max))
-							(forward-char -1))
-						(write-file out-file))))
+         (t
+          ;; Need to figure out the delimiter for the header row
+          (with-temp-buffer
+            (insert-file-contents out-file)
+            (goto-char (point-min))
+            (when (re-search-forward "^\\(-+\\)[^-]" nil t)
+              (setq header-delim (match-string-no-properties 1)))
+            (goto-char (point-max))
+            (forward-char -1)
+            (while (looking-at "\n")
+              (delete-char 1)
+              (goto-char (point-max))
+              (forward-char -1))
+            (write-file out-file))))
 
-				(when session-p
-					(goto-char (point-min))
-					;; clear the output of prompt and termination
-					(while (re-search-forward clean-output nil t)
-						(replace-match "")))
+        (when session-p
+          (goto-char (point-min))
+          ;; clear the output of prompt and termination
+          (while (re-search-forward
+                  (sql-get-product-feature in-engine :org-sql-session-clean-output)
+                  nil t)
+            (replace-match "")))
 
-				(org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
-				(when org-sql-close-out-temp-buffer-p
-					(kill-buffer (get-file-buffer out-file)))
-				(org-babel-reassemble-table
-				 (mapcar (lambda (x)
-									 (if (string= (car x) header-delim)
-											 'hline
-										 x))
-								 (org-table-to-lisp))
-				 (org-babel-pick-name (cdr (assq :colname-names params))
-															(cdr (assq :colnames params)))
-				 (org-babel-pick-name (cdr (assq :rowname-names params))
-															(cdr (assq :rownames params))))))))
+        (org-table-import out-file (if (string= engine "sqsh") '(4) '(16)))
+        (when org-sql-close-out-temp-buffer-p
+          (kill-buffer (get-file-buffer out-file)))
+        (org-babel-reassemble-table
+         (mapcar (lambda (x)
+                   (if (string= (car x) header-delim)
+                       'hline
+                     x))
+                 (org-table-to-lisp))
+         (org-babel-pick-name (cdr (assq :colname-names params))
+                              (cdr (assq :colnames params)))
+         (org-babel-pick-name (cdr (assq :rowname-names params))
+                              (cdr (assq :rownames params))))))))
 
 (defun org-babel-edit-prep:sql (info)
   "Prepare Org-edit buffer.
@@ -538,17 +542,30 @@ argument mechanism."
 PARAMS provides the sql connection parameters for a new or
 existing SESSION.  Clear the intermediate buffer from previous
 output, and set the process filter.  Return the comint process
-buffer."
+buffer.
 
-  ;; (sql-set-product in-engine)
-  (let* ((sql-server    (cdr (assoc :dbhost params)))
-         ;; (sql-port      (cdr (assoc :port params)))
-         (sql-database  (cdr (assoc :database params)))
-         (sql-user      (cdr (assoc :dbuser params)))
-         (sql-password  (cdr (assoc :dbpassword params)))
-         (buffer-name (format "%s" (if (string= session "none") ""
-                                     (format "[%s]" session))))
-         (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
+The buffer naming was shortened from
+*[session] engine://user@host/database*,
+that clearly identifies the connexion from Emacs,
+to *SQL [session]* in order to retrieve a session with its
+name alone, the other parameters in the header args beeing
+no longer needed while the session stays open."
+  (sql-set-product in-engine)
+  (let* ( (sql-server    (cdr (assoc :dbhost params)))
+          ;; (sql-port      (cdr (assoc :port params)))
+          (sql-database  (cdr (assoc :database params)))
+          (sql-user      (cdr (assoc :dbuser params)))
+          (sql-password  (cdr (assoc :dbpassword params)))
+          (buffer-name (format "%s" (if (string= session "none") ""
+                                      (format "[%s]" session))))
+          ;; (buffer-name
+          ;;  (format "%s%s://%s%s/%s"
+          ;;          (if (string= session "none") "" (format "[%s] " session))
+          ;;          engine
+          ;;          (if sql-user (concat sql-user "@") "")
+          ;;          (if sql-server (concat sql-server ":") "")
+          ;;          sql-database))
+          (ob-sql-buffer (format "*SQL: %s*" buffer-name)))
 
     (if (org-babel-comint-buffer-livep ob-sql-buffer)
         (progn  ; set again the filter
@@ -558,23 +575,28 @@ buffer."
       ;; otherwise initiate a new connection
       (save-window-excursion
         (setq ob-sql-buffer              ; start the client
-              (org-babel-sql-connect in-engine buffer-name))
-        (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
-          (unless sql-term-proc
-            (user-error (format "SQL %s didn't start" in-engine)))
+              (org-babel-sql-connect in-engine buffer-name)))
+      (let ((sql-term-proc (get-buffer-process ob-sql-buffer)))
+        (unless sql-term-proc
+          (user-error (format "SQL %s didn't start" in-engine)))
 
-					;; preamble commands
-          (with-current-buffer (get-buffer ob-sql-buffer)
-            (let ((preamble (plist-get org-sql-session-preamble in-engine)))
-              (when preamble
-                (process-send-string ob-sql-buffer preamble)
-                (comint-send-input))))
-          (sleep-for 0.1) ; or the result of the preamble will be in the process filter
-          ;; set the redirection filter
-          (set-process-filter sql-term-proc
-                              #'org-sql-session-comint-output-filter)
-          ;; return that buffer
-          (get-buffer ob-sql-buffer))))))
+        ;; clear the welcoming message out of the output from the
+        ;; first command, in the case where we forgot quiet mode.
+        ;; we can't evaluate how long the connection will take
+        ;; so if quiet mode is off and the connexion takes time
+        ;; then the welcoming message may show up
+
+        (with-current-buffer (get-buffer ob-sql-buffer)
+          (let ((preamble (plist-get org-sql-session-preamble in-engine)))
+            (when preamble
+              (process-send-string ob-sql-buffer preamble)
+              (comint-send-input))))
+        (sleep-for 0.1) ; or the result of the preamble will be in the process filter
+        ;; set the redirection filter
+        (set-process-filter sql-term-proc
+                            #'org-sql-session-comint-output-filter)
+        ;; return that buffer
+        (get-buffer ob-sql-buffer)))))
 
 (defun org-babel-sql-connect (&optional engine sql-cnx)
   "Run ENGINE interpreter as an inferior process, with SQL-CNX as client buffer.
@@ -601,12 +623,16 @@ should also be prompted."
           rpt)
 
       ;; store the regexp used to clear output (prompt1|indicator|prompt2)
-      (setq org-sql-session-clean-output
-						(plist-put org-sql-session-clean-output engine
-											 (concat "\\(" prompt-regexp "\\)"
-															 "\\|\\(" org-sql-session--batch-terminate "\n\\)"
-															 (when prompt-cont-regexp
-																 (concat "\\|\\(" prompt-cont-regexp "\\)")))))
+      (plist-put org-sql-session-clean-output engine
+                 (concat "\\(" prompt-regexp "\\)"
+                         "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                         (when prompt-cont-regexp
+                           (concat "\\|\\(" prompt-cont-regexp "\\)"))))
+      (sql-set-product-feature engine :org-sql-session-clean-output
+                               (concat "\\(" prompt-regexp "\\)"
+                                       "\\|\\(" org-sql-session--batch-terminate "\n\\)"
+                                       (when prompt-cont-regexp
+                                         (concat "\\|\\(" prompt-cont-regexp "\\)"))))
 
       ;; Get credentials.
       ;; either all fields are provided
