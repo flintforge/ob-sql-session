@@ -5,6 +5,10 @@
 ;;; Code:
 
 (load-file "./ob-sql.el")
+
+(require 'org)
+(require 'sql)
+(require 'ert)
 (org-version nil t t)
 ;; redefine (or patch...)
 (defun sql-comint-sqlite (product &optional options buf-name)
@@ -69,43 +73,70 @@ Compare the result against EXPECT."
         (org-babel-next-src-block)
         (org-babel-execute-src-block)
         (message "=>\n%s" (results-block-contents))
-        (should (string= expect (results-block-contents)))
+        (should (equal expect (results-block-contents)))
         )))))
 
-(defun sqlite-test (code expect)
-  "SQL test CODE block, EXPECT 'ing this result."
+(defun sqlite-test (code expect &optional header-args)
+  "Test CODE block with optional HEADER-ARGS, EXPECT ing this result."
   (babel-block-test
-   #'setup "sql :engine sqlite :session sqlite::tests :results raw"
+   #'setup (concat "sql :engine sqlite :results raw " header-args)
    code expect))
 
+(defun sqlite-test-table (code expect &optional header-args)
+  "Test CODE block with optional HEADER-ARGS, EXPECT ing this result."
+  (babel-block-test
+   #'setup (concat "sql :engine sqlite :results table output " header-args)
+   code expect))
+
+(ert-deftest 000-sqlite:test-select ()
+  "Basic select."
+  (sqlite-test "select 1" "1\n" ))
+
+(ert-deftest 000-sqlite:test-session-select ()
+  "Basic select."
+  (sqlite-test "select 1,2" "1|2\n" ":session sqlite::tests" ))
+
+(ert-deftest 000-sqlite:test-select-table ()
+  "Select table."
+  (sqlite-test-table ".headers on
+ select 1 as a, 2 as b;" '(("a" "b") (1 2)) nil))
+
 (ert-deftest 000-sqlite:test-header ()
-  "Create table."
+  "Hedaers off."
   (sqlite-test ".headers off" nil))
 
 
 (ert-deftest 001-sqlite:test-create ()
-  "Create table."
+  "Header off, Create table."
   (sqlite-test ".headers off
 
-create table test(one varchar(10), two int);" nil))
+create table test(one varchar(10), two int);"
+							 nil
+							 ":session sqlite::tests"
+							 ))
 
 (ert-deftest 002-sqlite:test-insert ()
   "Insert into table."
-  (sqlite-test "insert into test values(\'hello\',\'world\');" nil))
+  (sqlite-test "insert into test values(\'hello\',\'world\');"
+							 nil
+							 ":session sqlite::tests"))
 
 (ert-deftest 003-sqlite:test-select ()
   "Select from table."
   (sqlite-test "select * from test;"
-               "hello|world\n"))
+               "hello|world\n"
+							 ":session sqlite::tests"))
 
 (ert-deftest 004-sqlite:test-filter-tabs ()
   "Insert with tabs."
   (sqlite-test "
-      --create table test(x,y);
-        select * from test;
+			--create table test(x,y);
+				select * from test;
 
 "
-               "hello|world\n"))
+               "hello|world\n"
+							 ":session sqlite::tests"
+							 ))
 
 ;; gh is on SQLite version 3.37.2 2022-01-06,
 ;; and its error message is slightly different
@@ -149,20 +180,20 @@ create table test(one varchar(10), two int);" nil))
    "one|two
 sqlite|3.4
 1|2
-"))
+"							 ":session sqlite::tests"))
 
 ;; additionally, an error after a command can clutter the next shell
 ;;
 
 (defun pg-test (code expect)
-  "Test Postgres SQL CODE, with EXPECT 'ed result."
+  "Test Postgres sql CODE, with EXPECT ed result."
   (babel-block-test
    #'setup
    "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw :var var=33"
    code expect))
 
 (defun pg-test-session (code expect)
-  "Test Postgres SQL CODE, with EXPECT 'ed result."
+  "Test Postgres SQL CODE in a session, with EXPECT ed result."
   (babel-block-test
    #'setup
    "sql :engine postgres :dbhost localhost :database pg :dbuser pg :dbpassword pg :results raw \
