@@ -5,7 +5,7 @@
 #+License: GPL3
 https://github.com/flintforge/ob-sql-session
 
-** Orb Babel functions for SQL, with session
+** Org Babel functions for SQL, with session
 *** Overview
 :PROPERTIES:
 :header-args: sql-session :engine postgres :dbhost localhost :database test :session PG :results table
